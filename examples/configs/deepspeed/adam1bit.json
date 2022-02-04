@@ -1,0 +1,27 @@
+{
+	"train_micro_batch_size_per_gpu": 16,
+	"prescale_gradients": false,
+	"optimizer": {
+		"type": "OneBitAdam",
+		"params": {
+			"lr": 1e-3,
+			"betas": [
+				0.8,
+				0.999
+			],
+			"weight_decay": 3e-7,
+			"freeze_step": 1000,
+			"cuda_aware": false,
+			"comm_backend_name": "nccl"
+		}
+	},
+	"gradient_clipping": 1.0,
+
+	"wall_clock_breakdown": false,
+
+	"fp16": {
+		"enabled": true,
+		"loss_scale": 0,
+		"initial_scale_power": 16
+	}
+}
