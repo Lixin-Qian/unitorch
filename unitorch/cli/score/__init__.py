@@ -77,11 +77,7 @@ class AccuracyScore(Score):
             targets = torch.cat([t.view(-1) for t in targets])
 
         if outputs.dim() == 2:
-            outputs = (
-                outputs.argmax(dim=-1)
-                if outputs.size(-1) > 1
-                else outputs[:, 0] > self.gate
-            )
+            outputs = outputs.argmax(dim=-1) if outputs.size(-1) > 1 else outputs[:, 0] > self.gate
 
         if targets.dim() == 2 and targets.size(-1) == 1:
             targets = targets[:, 0]
@@ -114,11 +110,7 @@ class RecallScore(Score):
             targets = targets.targets
 
         if outputs.dim() == 2:
-            outputs = (
-                outputs.argmax(dim=-1)
-                if outputs.size(-1) > 1
-                else outputs[:, 0] > self.gate
-            )
+            outputs = outputs.argmax(dim=-1) if outputs.size(-1) > 1 else outputs[:, 0] > self.gate
 
         if targets.dim() == 2 and targets.size(-1) == 1:
             targets = targets[:, 0]
@@ -151,11 +143,7 @@ class F1Score(Score):
             targets = targets.targets
 
         if outputs.dim() == 2:
-            outputs = (
-                outputs.argmax(dim=-1)
-                if outputs.size(-1) > 1
-                else outputs[:, 0] > self.gate
-            )
+            outputs = outputs.argmax(dim=-1) if outputs.size(-1) > 1 else outputs[:, 0] > self.gate
 
         if targets.dim() == 2 and targets.size(-1) == 1:
             targets = targets[:, 0]
@@ -223,11 +211,7 @@ class MattCorrScore(Score):
             targets = targets.targets
 
         if outputs.dim() == 2:
-            outputs = (
-                outputs.argmax(dim=-1)
-                if outputs.size(-1) > 1
-                else outputs[:, 0] > self.gate
-            )
+            outputs = outputs.argmax(dim=-1) if outputs.size(-1) > 1 else outputs[:, 0] > self.gate
 
         if targets.dim() == 2 and targets.size(-1) == 1:
             targets = targets[:, 0]

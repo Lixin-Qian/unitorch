@@ -19,6 +19,12 @@ class RobertaForClassification(GenericModel):
         num_class: Optional[int] = 1,
         gradient_checkpointing: Optional[bool] = False,
     ):
+        """
+        Args:
+            config_path: config file path to roberta model
+            num_class: num class to classification
+            gradient_checkpointing: if to enable gradient_checkpointing
+        """
         super().__init__()
         self.config = RobertaConfig.from_json_file(config_path)
         self.config.gradient_checkpointing = gradient_checkpointing
@@ -34,6 +40,13 @@ class RobertaForClassification(GenericModel):
         seg_ids: Optional[torch.Tensor] = None,
         pos_ids: Optional[torch.Tensor] = None,
     ):
+        """
+        Args:
+            tokens_ids: tokens of text
+            attn_mask: attention mask of tokens
+            seg_ids: token type ids
+            pos_ids: position ids
+        """
         outputs = self.roberta(
             tokens_ids,
             attention_mask=attn_mask,
@@ -53,6 +66,11 @@ class RobertaForMaskLM(GenericModel):
         config_path: str,
         gradient_checkpointing: Optional[bool] = False,
     ):
+        """
+        Args:
+            config_path: config file path to roberta model
+            gradient_checkpointing: if to enable gradient_checkpointing
+        """
         super().__init__()
         self.config = RobertaConfig.from_json_file(config_path)
         self.config.gradient_checkpointing = gradient_checkpointing
@@ -68,6 +86,13 @@ class RobertaForMaskLM(GenericModel):
         seg_ids: Optional[torch.Tensor] = None,
         pos_ids: Optional[torch.Tensor] = None,
     ):
+        """
+        Args:
+            tokens_ids: tokens of text
+            attn_mask: attention mask of tokens
+            seg_ids: token type ids
+            pos_ids: position ids
+        """
         outputs = self.roberta(
             tokens_ids,
             attention_mask=attn_mask,

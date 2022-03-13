@@ -10,7 +10,7 @@ from typing import Type, Any, Callable, Dict, Iterable, List, Optional, Tuple, U
 from unitorch.models import GenericModel
 
 
-def conv3x3(in_planes, out_planes, stride=1):
+def _conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(
         in_planes,
         out_planes,
@@ -21,7 +21,7 @@ def conv3x3(in_planes, out_planes, stride=1):
     )
 
 
-class SELayer(nn.Module):
+class _SELayer(nn.Module):
     def __init__(self, channel, reduction=16):
         super().__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
@@ -39,7 +39,7 @@ class SELayer(nn.Module):
         return x * y.expand_as(x)
 
 
-class SEBasicBlock(nn.Module):
+class _SEBasicBlock(nn.Module):
     expansion = 1
 
     def __init__(
@@ -56,12 +56,12 @@ class SEBasicBlock(nn.Module):
         reduction=16
     ):
         super().__init__()
-        self.conv1 = conv3x3(inplanes, planes, stride)
+        self.conv1 = _conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = conv3x3(planes, planes, 1)
+        self.conv2 = _conv3x3(planes, planes, 1)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.se = SELayer(planes, reduction)
+        self.se = _SELayer(planes, reduction)
         self.downsample = downsample
         self.stride = stride
 
@@ -84,7 +84,7 @@ class SEBasicBlock(nn.Module):
         return out
 
 
-class SEBottleneck(nn.Module):
+class _SEBottleneck(nn.Module):
     expansion = 4
 
     def __init__(
@@ -103,14 +103,12 @@ class SEBottleneck(nn.Module):
         super().__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(
-            planes, planes, kernel_size=3, stride=stride, padding=1, bias=False
-        )
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes * 4)
         self.relu = nn.ReLU(inplace=True)
-        self.se = SELayer(planes * 4, reduction)
+        self.se = _SELayer(planes * 4, reduction)
         self.downsample = downsample
         self.stride = stride
 
@@ -141,29 +139,26 @@ class SEBottleneck(nn.Module):
 class SeResNet(GenericModel):
     def __init__(
         self,
-        arch,
-        num_class,
+        arch: str,
+        num_class: int,
     ):
+        """
+        Args:
+            arch: model structure, one of ['resnet18', 'resnet50', 'resnet101', 'resnet152']
+            num_class: num class to classification
+        """
         super().__init__()
         self.arch = arch
         self.num_classes = num_class
 
         if self.arch == "resnet18":
-            self.model = ResNet(
-                SEBasicBlock, [2, 2, 2, 2], num_classes=self.num_classes
-            )
+            self.model = ResNet(_SEBasicBlock, [2, 2, 2, 2], num_classes=self.num_classes)
         elif self.arch == "resnet50":
-            self.model = ResNet(
-                SEBottleneck, [3, 4, 6, 3], num_classes=self.num_classes
-            )
+            self.model = ResNet(_SEBottleneck, [3, 4, 6, 3], num_classes=self.num_classes)
         elif self.arch == "resnet101":
-            self.model = ResNet(
-                SEBottleneck, [3, 4, 23, 3], num_classes=self.num_classes
-            )
+            self.model = ResNet(_SEBottleneck, [3, 4, 23, 3], num_classes=self.num_classes)
         elif self.arch == "resnet152":
-            self.model = ResNet(
-                SEBottleneck, [3, 8, 36, 3], num_classes=self.num_classes
-            )
+            self.model = ResNet(_SEBottleneck, [3, 8, 36, 3], num_classes=self.num_classes)
 
-    def forward(self, image_input):
-        return self.model(image_input)
+    def forward(self, pixel_values: torch.Tensor):
+        return self.model(pixel_values)

@@ -5,6 +5,7 @@ import os
 import torch
 import numpy as np
 from PIL import Image
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from torchvision.transforms import Resize, CenterCrop, ToTensor, Normalize, Compose
 from transformers import CLIPFeatureExtractor, CLIPTokenizer
 from unitorch.functions import pop_first_non_none_value
@@ -17,9 +18,17 @@ class CLIPProcessor(object):
         vocab_path: str,
         merge_path: str,
         vision_config_path: str,
-        max_seq_length: int = 128,
-        position_start_id: int = 0,
+        max_seq_length: Optional[int] = 128,
+        position_start_id: Optional[int] = 0,
     ):
+        """
+        Args:
+            vocab_path: vocab file path in bart tokenizer
+            merge_path: merge file path in bart tokenizer
+            vision_config_path: vision config path to clip processor
+            max_seq_length: max sequence length encode text
+            position_start_id: start id of position
+        """
         self.tokenizer = CLIPTokenizer(
             vocab_file=vocab_path,
             merges_file=merge_path,
@@ -45,8 +54,14 @@ class CLIPProcessor(object):
         self,
         text: str,
         image: Image.Image,
-        max_seq_length: int = None,
+        max_seq_length: Optional[int] = None,
     ):
+        """
+        Args:
+            text: input text
+            image: input image
+            max_seq_length: max sequence length to input text
+        """
         max_seq_length = int(
             pop_first_non_none_value(
                 max_seq_length,
@@ -100,8 +115,13 @@ class CLIPProcessor(object):
     def processing_text_classifictaion(
         self,
         text: str,
-        max_seq_length: int = None,
+        max_seq_length: Optional[int] = None,
     ):
+        """
+        Args:
+            text: input text
+            max_seq_length: max sequence length to input text
+        """
         max_seq_length = int(
             pop_first_non_none_value(
                 max_seq_length,
@@ -140,6 +160,10 @@ class CLIPProcessor(object):
         self,
         image: Image.Image,
     ):
+        """
+        Args:
+            image: input image
+        """
         image = self.vision_processor.resize(
             image=image,
             size=self.size,

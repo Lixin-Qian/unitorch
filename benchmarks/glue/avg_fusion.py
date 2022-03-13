@@ -105,31 +105,20 @@ def avg_fusion(*results, task=None):
     results = [result.sort_values("idx") for result in results]
     fusion = results[0]
     if task in ["stsb", "wnli"]:
-        fusion["score"] = np.mean(
-            [result["score"].values for result in results], axis=0
-        )
+        fusion["score"] = np.mean([result["score"].values for result in results], axis=0)
     else:
         _results = pd.concat(
-            [
-                pd.DataFrame({f"class_score_{i}": result["class_score"]})
-                for i, result in enumerate(results)
-            ],
+            [pd.DataFrame({f"class_score_{i}": result["class_score"]}) for i, result in enumerate(results)],
             axis=1,
         )
 
         def func(row):
             scores = np.mean(
-                [
-                    json.loads(v)["scores"]
-                    for k, v in row.items()
-                    if k.startswith("class_score_")
-                ],
+                [json.loads(v)["scores"] for k, v in row.items() if k.startswith("class_score_")],
                 axis=0,
             )
             cls, score = np.argmax(scores), np.max(scores)
-            return json.dumps(
-                {"class": int(cls), "score": float(score), "scores": scores.tolist()}
-            )
+            return json.dumps({"class": int(cls), "score": float(score), "scores": scores.tolist()})
 
         fusion["class_score"] = _results.apply(func, axis=1)
     return fusion

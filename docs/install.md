@@ -18,22 +18,22 @@
 
 ##### Install with pip
 ```bash
-pip install unitorch
-pip install unitorch[detection]
+pip3 install unitorch
+pip3 install unitorch[detectron2]
 ```
 
 ##### Install from source code
 ```bash
-pip install -e .
+pip3 install .
 ```
 
 ##### Install detection extension
 ```bash
-pip install git+https://github.com/fuliucansheng/unitorch#egg=unitorch[detection]
+pip3 install git+https://github.com/fuliucansheng/unitorch#egg=unitorch[detectron2]
 ```
 
 ##### Install detection and enable ngram extension
 ```bash
-pip install git+https://github.com/fuliucansheng/unitorch#egg=unitorch[detection] --global-option="--enable_ngram_cuda_extension"
+pip3 install git+https://github.com/fuliucansheng/unitorch#egg=unitorch[detectron2] --global-option="--enable_ngram_cuda_extension"
 ```
 

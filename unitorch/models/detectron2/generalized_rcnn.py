@@ -28,24 +28,32 @@ from unitorch.models import GenericModel, GenericOutputs
 
 
 class GeneralizedRCNN(GenericModel):
-    def __init__(self, detectron2_config_path):
+    def __init__(self, detectron2_config_path: str):
         super().__init__()
+        """
+        Args:
+            detectron2_config_path: config file path to generalized rcnn model
+        """
         config = get_cfg()
         config.merge_from_file(detectron2_config_path)
         self.config = config
         self.backbone = build_backbone(config)
-        self.proposal_generator = build_proposal_generator(
-            config, self.backbone.output_shape()
-        )
+        self.proposal_generator = build_proposal_generator(config, self.backbone.output_shape())
         self.roi_heads = build_roi_heads(config, self.backbone.output_shape())
         self.init_weights()
 
     @property
     def dtype(self):
+        """
+        `torch.dtype`: which dtype the parameters are (assuming that all the parameters are the same dtype).
+        """
         return next(self.parameters()).dtype
 
     @property
     def device(self):
+        """
+        `torch.device`: The device on which the module is (assuming that all the module parameters are on the same device).
+        """
         return next(self.parameters()).device
 
     def forward(
@@ -55,15 +63,14 @@ class GeneralizedRCNN(GenericModel):
         classes: Union[List[torch.Tensor], torch.Tensor],
     ):
         """
-        images: list of image tensor
-        bboxes: list of boxes tensor
-        classes: list of classes tensor
+        Args:
+            images: list of image tensor
+            bboxes: list of boxes tensor
+            classes: list of classes tensor
         """
         if isinstance(images, torch.Tensor):
             assert images.dim() == 4
-            _images = ImageList(
-                images, [(images.size(-2), images.size(-1))] * images.size(0)
-            )
+            _images = ImageList(images, [(images.size(-2), images.size(-1))] * images.size(0))
         else:
             _images = ImageList.from_tensors(images)
         _instances = [
@@ -76,31 +83,25 @@ class GeneralizedRCNN(GenericModel):
         ]
         with EventStorage() as storage:
             _features = self.backbone(_images.tensor.to(self.dtype))
-            _proposals, _rpn_loss = self.proposal_generator(
-                _images, _features, _instances
-            )
+            _proposals, _rpn_loss = self.proposal_generator(_images, _features, _instances)
             _, _roi_loss = self.roi_heads(_images, _features, _proposals, _instances)
         _loss = torch.tensor(0.0).to(self.device)
         for k, v in {**_rpn_loss, **_roi_loss}.items():
             _loss += v
         return _loss
 
-    def get_box_features(self, features, proposals):
+    def _get_box_features(self, features, proposals):
         if isinstance(self.roi_heads, Res5ROIHeads):
             proposal_boxes = [x.proposal_boxes for x in proposals]
             box_features = self.roi_heads._shared_roi_transform(
                 [features[f] for f in self.roi_heads.in_features], proposal_boxes
             )
             predictions = self.roi_heads.box_predictor(box_features.mean(dim=[2, 3]))
-            _, prediction_indexes = self.roi_heads.box_predictor.inference(
-                predictions, proposals
-            )
+            _, prediction_indexes = self.roi_heads.box_predictor.inference(predictions, proposals)
             num_proposals = [0] + [len(prop) for prop in proposals]
             num_proposals = list(accumulate(num_proposals))
             return [
-                box_features[num_proposals[i] : num_proposals[i + 1]][
-                    prediction_indexes[i]
-                ]
+                box_features[num_proposals[i] : num_proposals[i + 1]][prediction_indexes[i]]
                 for i in range(len(prediction_indexes))
             ]
 
@@ -111,15 +112,11 @@ class GeneralizedRCNN(GenericModel):
             )
             box_features = self.roi_heads.box_head(box_features)
             predictions = self.roi_heads.box_predictor(box_features)
-            _, prediction_indexes = self.roi_heads.box_predictor.inference(
-                predictions, proposals
-            )
+            _, prediction_indexes = self.roi_heads.box_predictor.inference(predictions, proposals)
             num_proposals = [0] + [len(prop) for prop in proposals]
             num_proposals = list(accumulate(num_proposals))
             return [
-                box_features[num_proposals[i] : num_proposals[i + 1]][
-                    prediction_indexes[i]
-                ]
+                box_features[num_proposals[i] : num_proposals[i + 1]][prediction_indexes[i]]
                 for i in range(len(prediction_indexes))
             ]
 
@@ -129,17 +126,16 @@ class GeneralizedRCNN(GenericModel):
     def detect(
         self,
         images: Union[List[torch.Tensor], torch.Tensor],
-        return_features: bool = False,
-        norm_bboxes: bool = False,
+        return_features: Optional[bool] = False,
+        norm_bboxes: Optional[bool] = False,
     ):
         """
-        images: list of image tensor
+        Args:
+            images: list of image tensor
         """
         if isinstance(images, torch.Tensor):
             assert images.dim() == 4
-            _images = ImageList(
-                images, [(images.size(-2), images.size(-1))] * images.size(0)
-            )
+            _images = ImageList(images, [(images.size(-2), images.size(-1))] * images.size(0))
         else:
             _images = ImageList.from_tensors(images)
         _features = self.backbone(_images.tensor.to(self.dtype))
@@ -152,10 +148,7 @@ class GeneralizedRCNN(GenericModel):
 
         if norm_bboxes:
             sizes = _images.image_sizes
-            bboxes = [
-                b / torch.tensor([s[1], s[0], s[1], s[0]]).to(b)
-                for b, s in zip(bboxes, sizes)
-            ]
+            bboxes = [b / torch.tensor([s[1], s[0], s[1], s[0]]).to(b) for b, s in zip(bboxes, sizes)]
 
         outputs = dict(
             {
@@ -166,6 +159,6 @@ class GeneralizedRCNN(GenericModel):
         )
 
         if return_features:
-            outputs["features"] = self.get_box_features(_features, _proposals)
+            outputs["features"] = self._get_box_features(_features, _proposals)
 
         return GenericOutputs(outputs)

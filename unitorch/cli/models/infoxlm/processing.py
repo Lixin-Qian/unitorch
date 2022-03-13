@@ -2,8 +2,8 @@
 # Licensed under the MIT License.
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
-from unitorch import hf_cached_path
 from unitorch.models.infoxlm import InfoXLMProcessor as _InfoXLMProcessor
+from unitorch.cli import cached_path
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
@@ -49,7 +49,7 @@ class InfoXLMProcessor(_InfoXLMProcessor):
             if vocab_name_or_path in pretrained_infoxlm_infos
             else vocab_name_or_path
         )
-        vocab_path = hf_cached_path(vocab_path)
+        vocab_path = cached_path(vocab_path)
         return {
             "vocab_path": vocab_path,
         }

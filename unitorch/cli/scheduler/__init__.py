@@ -15,9 +15,7 @@ class SchedulerMixin(object):
         state_dict = self.state_dict()
         weight_path = os.path.join(ckpt_dir, weight_name)
         torch.save(state_dict, weight_path)
-        logging.info(
-            f"{type(self).__name__} scheduler save checkpoint to {weight_path}"
-        )
+        logging.info(f"{type(self).__name__} scheduler save checkpoint to {weight_path}")
 
     def from_checkpoint(
         self,
@@ -29,9 +27,7 @@ class SchedulerMixin(object):
             return
         state_dict = torch.load(weight_path, map_location="cpu")
         self.load_state_dict(state_dict)
-        logging.info(
-            f"{type(self).__name__} scheduler load weight from checkpoint {weight_path}"
-        )
+        logging.info(f"{type(self).__name__} scheduler load weight from checkpoint {weight_path}")
 
 
 import unitorch.cli.scheduler.warmup

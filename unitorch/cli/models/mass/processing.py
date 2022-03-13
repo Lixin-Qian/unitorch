@@ -2,8 +2,8 @@
 # Licensed under the MIT License.
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
-from unitorch import hf_cached_path
 from unitorch.models.mass import MASSProcessor as _MASSProcessor
+from unitorch.cli import cached_path
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
@@ -49,7 +49,7 @@ class MASSProcessor(_MASSProcessor):
             if vocab_name_or_path in pretrained_mass_infos
             else vocab_name_or_path
         )
-        vocab_path = hf_cached_path(vocab_path)
+        vocab_path = cached_path(vocab_path)
         return {
             "vocab_path": vocab_path,
         }
@@ -68,10 +68,7 @@ class MASSProcessor(_MASSProcessor):
             max_seq_length=max_seq_length,
             max_gen_seq_length=max_gen_seq_length,
         )
-        return BaseInputs(
-            tokens_ids_a=outputs.tokens_ids,
-            tokens_ids_b=outputs.tokens_ids_pair,
-        ), GenerationTargets(
+        return BaseInputs(tokens_ids_a=outputs.tokens_ids, tokens_ids_b=outputs.tokens_ids_pair,), GenerationTargets(
             refs=outputs.tokens_ids_target,
             masks=outputs.tokens_mask_target,
         )

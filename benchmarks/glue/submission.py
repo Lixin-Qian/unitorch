@@ -78,13 +78,11 @@ def get_submission_file(result, task):
         result["label"] = result["score"].map(lambda x: min(max(round(x), 0), 5))
     elif task == "wnli":
         labels = label_classes[task]
-        gate = result["score"].quantile(0.75)
-        result["label"] = result["score"].map(lambda x: labels[x >= gate])
+        gate = result["score"].quantile(0.8)
+        result["label"] = result["score"].map(lambda x: labels[x > gate])
     else:
         labels = label_classes[task]
-        result["label"] = result["class_score"].map(
-            lambda x: labels[json.loads(x)["class"]]
-        )
+        result["label"] = result["class_score"].map(lambda x: labels[json.loads(x)["class"]])
     result = result[["idx", "label"]]
     return result
 

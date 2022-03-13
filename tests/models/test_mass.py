@@ -4,8 +4,9 @@
 import unitorch
 import torch
 from absl.testing import absltest, parameterized
-from unitorch import set_seed, hf_cached_path
+from unitorch import set_seed
 from unitorch.models.mass import MASSForGeneration, MASSProcessor
+from unitorch.cli import cached_path
 from unitorch.cli import CoreConfigureParser
 from unitorch.cli.models.mass.modeling import MASSForGeneration as CLI_MASSForGeneration
 from unitorch.cli.models.mass.processing import MASSProcessor as CLI_MASSProcessor
@@ -15,17 +16,15 @@ import pkg_resources
 class MASSTest(parameterized.TestCase):
     def setUp(self):
         set_seed(42)
-        config_path = pkg_resources.resource_filename(
-            "unitorch", "examples/configs/core/generation/mass.ini"
-        )
+        config_path = pkg_resources.resource_filename("unitorch", "examples/configs/core/generation/mass.ini")
         self.config = CoreConfigureParser(config_path)
-        self.config_path = hf_cached_path(
+        self.config_path = cached_path(
             "https://huggingface.co/fuliucansheng/mass/resolve/main/mass-base-uncased-config.json"
         )
-        self.vocab_path = hf_cached_path(
+        self.vocab_path = cached_path(
             "https://huggingface.co/fuliucansheng/mass/resolve/main/mass-base-uncased-vocab.txt"
         )
-        self.weight_path = hf_cached_path(
+        self.weight_path = cached_path(
             "https://huggingface.co/fuliucansheng/mass/resolve/main/mass-base-uncased-pytorch-model.bin"
         )
 

@@ -12,9 +12,15 @@ class HuggingfaceGenerationProcessor(object):
     def __init__(
         self,
         tokenizer: PreTrainedTokenizer,
-        max_seq_length: int = 128,
-        max_gen_seq_length: int = 48,
+        max_seq_length: Optional[int] = 128,
+        max_gen_seq_length: Optional[int] = 48,
     ):
+        """
+        Args:
+            tokenizer: a huggingface tokenizer
+            max_seq_length: max sequence length to encode text
+            max_gen_seq_length: max sequence length to decode text
+        """
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
         self.max_gen_seq_length = max_gen_seq_length
@@ -32,6 +38,13 @@ class HuggingfaceGenerationProcessor(object):
         max_seq_length: Optional[int] = None,
         max_gen_seq_length: Optional[int] = None,
     ):
+        """
+        Args:
+            text: encode text
+            text_pair: decode text
+            max_seq_length: max sequence length to encode text
+            max_gen_seq_length: max sequence length to decode text
+        """
         max_seq_length = pop_first_non_none_value(
             max_seq_length,
             self.max_seq_length,
@@ -51,9 +64,7 @@ class HuggingfaceGenerationProcessor(object):
 
         assert len(tokens_ids_a) == max_seq_length
         tokens_b = self.tokenizer.tokenize(str(text_pair))
-        tokens_b = (
-            [self.sep_token] + tokens_b[: max_gen_seq_length - 2] + [self.eos_token]
-        )
+        tokens_b = [self.sep_token] + tokens_b[: max_gen_seq_length - 2] + [self.eos_token]
         tokens_ids_b = self.tokenizer.convert_tokens_to_ids(tokens_b)
         tokens_b_len = len(tokens_ids_b)
 
@@ -84,6 +95,11 @@ class HuggingfaceGenerationProcessor(object):
         text: str,
         max_seq_length: Optional[int] = None,
     ):
+        """
+        Args:
+            text: encode text
+            max_seq_length: max sequence length to encode text
+        """
         max_seq_length = pop_first_non_none_value(
             max_seq_length,
             self.max_seq_length,
@@ -111,6 +127,11 @@ class HuggingfaceGenerationProcessor(object):
         text: str,
         max_gen_seq_length: Optional[int] = None,
     ):
+        """
+        Args:
+            text: decode text
+            max_gen_seq_length: max sequence length to decode text
+        """
         max_gen_seq_length = pop_first_non_none_value(
             max_gen_seq_length,
             self.max_gen_seq_length,
@@ -138,11 +159,14 @@ class HuggingfaceGenerationProcessor(object):
         sequences: torch.Tensor,
         skip_special_tokens: bool = True,
     ):
+        """
+        Args:
+            sequences: generation model output tensor 2-dim or 3-dim
+            skip_special_tokens: if skip special tokens
+        """
         if sequences.dim() == 3:
             _, num_return_sequences, sequences_length = sequences.size()
-            sequences = sequences.reshape(-1, sequences_length).clamp_max(
-                self.vocab_size
-            )
+            sequences = sequences.reshape(-1, sequences_length).clamp_max(self.vocab_size)
             sequences = sequences.clamp_min(0)
             sequences[sequences == self.vocab_size] = self.pad_token_id
             decode_tokens = self.tokenizer.batch_decode(
@@ -150,8 +174,7 @@ class HuggingfaceGenerationProcessor(object):
                 skip_special_tokens=skip_special_tokens,
             )
             decode_tokens = [
-                decode_tokens[i : i + num_return_sequences]
-                for i in range(0, len(decode_tokens), num_return_sequences)
+                decode_tokens[i : i + num_return_sequences] for i in range(0, len(decode_tokens), num_return_sequences)
             ]
         elif sequences.dim() == 2:
             sequences = sequences.clamp_min(0).clamp_max(self.vocab_size)
@@ -170,11 +193,19 @@ class HuggingfaceClassificationProcessor(object):
     def __init__(
         self,
         tokenizer: PreTrainedTokenizer,
-        max_seq_length: int = 128,
-        source_type_id: int = 0,
-        target_type_id: int = 1,
-        position_start_id: int = 0,
+        max_seq_length: Optional[int] = 128,
+        source_type_id: Optional[int] = 0,
+        target_type_id: Optional[int] = 1,
+        position_start_id: Optional[int] = 0,
     ):
+        """
+        Args:
+            tokenizer: a huggingface tokenizer
+            max_seq_length: max sequence length to encode text
+            source_type_id: token type id to text_a
+            target_type_id: token type id to text_b
+            position_start_id: start id of position
+        """
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
         self.pad_token = self.tokenizer.pad_token
@@ -191,6 +222,12 @@ class HuggingfaceClassificationProcessor(object):
         text_pair: str = None,
         max_seq_length: Optional[int] = None,
     ):
+        """
+        Args:
+            text: encode text
+            text_pair: decode text
+            max_seq_length: max sequence length to encode text
+        """
         max_seq_length = int(
             pop_first_non_none_value(
                 max_seq_length,
@@ -215,13 +252,7 @@ class HuggingfaceClassificationProcessor(object):
                 + [self.target_type_id] * len(tokens_b)
                 + [self.target_type_id]
             )
-            tokens = (
-                [self.cls_token]
-                + tokens
-                + [self.sep_token]
-                + tokens_b
-                + [self.sep_token]
-            )
+            tokens = [self.cls_token] + tokens + [self.sep_token] + tokens_b + [self.sep_token]
             tokens_ids = self.tokenizer.convert_tokens_to_ids(tokens)
             tokens_mask = [1] * len(tokens_ids)
 
@@ -252,11 +283,18 @@ class HuggingfaceClassificationProcessor(object):
 class GeneralizedProcessor(object):
     def __init__(
         self,
-        num_class: int = None,
-        sep: str = ",",
-        max_seq_length: int = 128,
-        map_dict: Dict = dict(),
+        num_class: Optional[int] = None,
+        sep: Optional[str] = ",",
+        max_seq_length: Optional[int] = 128,
+        map_dict: Optional[Dict] = dict(),
     ):
+        """
+        Args:
+            num_class: num class to classification
+            sep: delimiter to input text
+            max_seq_length: max sequence length to label sequence
+            map_dict: label mapping to input text
+        """
         self.num_class = num_class
         self.sep = sep
         self.max_seq_length = max_seq_length
@@ -265,8 +303,14 @@ class GeneralizedProcessor(object):
     def parse_digit(
         self,
         digit: Union[int, float, str],
-        dtype: str = "int",
+        dtype: Optional[str] = "int",
     ):
+        """
+        Args:
+            digit: input text/int/float to convert
+            dtype: target data type
+        Returns: a int/float number
+        """
         if isinstance(digit, str):
             assert digit.isdigit()
 
@@ -277,8 +321,14 @@ class GeneralizedProcessor(object):
     def processing_digit(
         self,
         digit: Union[int, float, str],
-        dtype: str = "int",
+        dtype: Optional[str] = "int",
     ):
+        """
+        Args:
+            digit: input text/int/float to convert
+            dtype: target data type
+        Returns: a tensor
+        """
         if dtype == "int":
             return torch.tensor(self.parse_digit(digit, dtype="int"))
         return torch.tensor(self.parse_digit(digit, dtype="float"))
@@ -286,8 +336,14 @@ class GeneralizedProcessor(object):
     def processing_target(
         self,
         text: Union[int, float, str],
-        dtype: str = "int",
+        dtype: Optional[str] = "int",
     ):
+        """
+        Args:
+            text: input text to convert
+            dtype: target data type
+        Returns: a tensor after replacement with map_dict
+        """
         if text in self.map_dict:
             text = self.map_dict[text]
 
@@ -296,10 +352,18 @@ class GeneralizedProcessor(object):
     def processing_features(
         self,
         features: Union[List, str],
-        sep: str = None,
-        dtype: str = "int",
-        shape: tuple = None,
+        sep: Optional[str] = None,
+        dtype: Optional[str] = "int",
+        shape: Optional[tuple] = None,
     ):
+        """
+        Args:
+            features: input feature list or string to process
+            sep: delimiter to split features string
+            dtype: target data type
+            shape: reshape the process results
+        Returns: a tensor after replacement with map_dict
+        """
         if isinstance(features, str):
             features = features.split(sep=sep)
         if dtype == "int":
@@ -315,15 +379,19 @@ class GeneralizedProcessor(object):
     def processing_sequence(
         self,
         text: Union[List, str],
-        sep: str = None,
-        dtype: str = "int",
+        sep: Optional[str] = None,
+        dtype: Optional[str] = "int",
     ):
+        """
+        Args:
+            text: input list or string to process
+            sep: delimiter to split text
+            dtype: target data type
+        Returns: a tensor after replacement with map_dict
+        """
         if isinstance(text, str):
             sep = pop_first_non_none_value(sep, self.sep)
-            tensor = [
-                self.parse_digit(self.map_dict.get(t, t), dtype=dtype)
-                for t in text.split(sep)
-            ]
+            tensor = [self.parse_digit(self.map_dict.get(t, t), dtype=dtype) for t in text.split(sep)]
         else:
             tensor = [self.parse_digit(t, dtype=dtype) for t in text]
         return torch.tensor(tensor)
@@ -331,15 +399,18 @@ class GeneralizedProcessor(object):
     def processing_multi_target(
         self,
         text: Union[List, str],
-        sep: str = None,
+        sep: Optional[str] = None,
     ):
+        """
+        Args:
+            text: input list or string to process
+            sep: delimiter to split text
+        Returns: a tensor after replacement with map_dict
+        """
         outputs = torch.zeros(self.num_class)
         if isinstance(text, str):
             sep = pop_first_non_none_value(sep, self.sep)
-            indexes = [
-                self.parse_digit(self.map_dict.get(t, t), dtype="int")
-                for t in text.split(sep)
-            ]
+            indexes = [self.parse_digit(self.map_dict.get(t, t), dtype="int") for t in text.split(sep)]
         else:
             indexes = [self.parse_digit(t, dtype="int") for t in text]
         outputs[indexes] = 1

@@ -12,7 +12,7 @@ from unitorch.functions import pop_first_non_none_value
 from unitorch.models import HuggingfaceGenerationProcessor
 
 
-def get_mbart_tokenizer(
+def _get_mbart_tokenizer(
     vocab_path,
     special_tokens_ids=dict(),
 ):
@@ -34,7 +34,14 @@ class MBartProcessor(HuggingfaceGenerationProcessor):
         max_gen_seq_length: Optional[int] = 48,
         special_tokens_ids: Dict = dict(),
     ):
-        tokenizer = get_mbart_tokenizer(
+        """
+        Args:
+            vocab_path: vocab file path in mbart tokenizer
+            max_seq_length: max sequence length encode text
+            max_gen_seq_length: max sequence length decode text
+            special_tokens_ids: special tokens dict in mbart tokenizer
+        """
+        tokenizer = _get_mbart_tokenizer(
             vocab_path,
             special_tokens_ids=special_tokens_ids,
         )

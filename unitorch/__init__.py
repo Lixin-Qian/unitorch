@@ -4,13 +4,9 @@
 import os
 
 # env setting
-os.environ["TRANSFORMERS_CACHE"] = os.getenv(
-    "UNITORCH_CACHE", os.path.join(os.getenv("HOME"), ".cache/unitorch")
-)
+os.environ["TRANSFORMERS_CACHE"] = os.getenv("UNITORCH_CACHE", os.path.join(os.getenv("HOME"), ".cache/unitorch"))
 
-os.environ["HF_DATASETS_CACHE"] = os.getenv(
-    "UNITORCH_CACHE", os.path.join(os.getenv("HOME"), ".cache/unitorch")
-)
+os.environ["HF_DATASETS_CACHE"] = os.getenv("UNITORCH_CACHE", os.path.join(os.getenv("HOME"), ".cache/unitorch"))
 
 # logging & warning setting
 import logging
@@ -36,7 +32,12 @@ torch.backends.cudnn.deterministic = False
 torch.backends.cudnn.benchmark = True
 
 
-def set_seed(seed):
+def set_seed(seed: int):
+    """
+    Helper function for reproducible behavior to set the seed in `random`, `numpy`, `torch` and/or `tf` (if installed).
+    Args:
+        seed (`int`): The seed to set.
+    """
     np.random.seed(seed)
     random.seed(seed)
     torch.manual_seed(seed)
@@ -50,7 +51,7 @@ def set_seed(seed):
 from transformers import cached_path as hf_cached_path
 
 # base imports
-import unitorch.common
+import unitorch.modules
 import unitorch.datasets
 import unitorch.loss
 import unitorch.score

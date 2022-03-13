@@ -17,6 +17,21 @@ pretrained_swin_infos = {
         "vision_config": "https://huggingface.co/microsoft/swin-base-patch4-window7-224/resolve/main/preprocessor_config.json",
         "weight": "https://huggingface.co/microsoft/swin-base-patch4-window7-224/resolve/main/pytorch_model.bin",
     },
+    "swin-large-patch4-window7-224": {
+        "config": "https://huggingface.co/microsoft/swin-large-patch4-window7-224/resolve/main/config.json",
+        "vision_config": "https://huggingface.co/microsoft/swin-large-patch4-window7-224/resolve/main/preprocessor_config.json",
+        "weight": "https://huggingface.co/microsoft/swin-large-patch4-window7-224/resolve/main/pytorch_model.bin",
+    },
+    "swin-base-patch4-window7-224-in22k": {
+        "config": "https://huggingface.co/microsoft/swin-base-patch4-window7-224-in22k/resolve/main/config.json",
+        "vision_config": "https://huggingface.co/microsoft/swin-base-patch4-window7-224-in22k/resolve/main/preprocessor_config.json",
+        "weight": "https://huggingface.co/microsoft/swin-base-patch4-window7-224-in22k/resolve/main/pytorch_model.bin",
+    },
+    "swin-large-patch4-window7-224-in22k": {
+        "config": "https://huggingface.co/microsoft/swin-large-patch4-window7-224-in22k/resolve/main/config.json",
+        "vision_config": "https://huggingface.co/microsoft/swin-large-patch4-window7-224-in22k/resolve/main/preprocessor_config.json",
+        "weight": "https://huggingface.co/microsoft/swin-large-patch4-window7-224-in22k/resolve/main/pytorch_model.bin",
+    },
 }
 
 import unitorch.cli.models.swin.modeling

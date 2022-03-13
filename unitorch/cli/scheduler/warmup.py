@@ -31,15 +31,9 @@ class CosineWarmupScheduler(CosineWarmupScheduler, SchedulerMixin):
     @classmethod
     @add_default_section_for_init("core/scheduler/cosine_warmup")
     def from_core_configure(cls, config, **kwargs):
-        num_warmup_steps = config.getdefault(
-            "core/scheduler/cosine_warmup", "num_warmup_steps", -1
-        )
-        num_warmup_rate = config.getdefault(
-            "core/scheduler/cosine_warmup", "num_warmup_rate", 0.001
-        )
-        num_cycles = config.getdefault(
-            "core/scheduler/cosine_warmup", "num_cycles", 0.5
-        )
+        num_warmup_steps = config.getdefault("core/scheduler/cosine_warmup", "num_warmup_steps", -1)
+        num_warmup_rate = config.getdefault("core/scheduler/cosine_warmup", "num_warmup_rate", 0.001)
+        num_cycles = config.getdefault("core/scheduler/cosine_warmup", "num_cycles", 0.5)
         num_training_steps = kwargs.get("num_training_steps", 1000000)
         if num_warmup_steps < 0:
             num_warmup_steps = int(num_training_steps * num_warmup_rate)
@@ -71,12 +65,8 @@ class LinearWarmupScheduler(LinearWarmupScheduler, SchedulerMixin):
     @classmethod
     @add_default_section_for_init("core/scheduler/linear_warmup")
     def from_core_configure(cls, config, **kwargs):
-        num_warmup_steps = config.getdefault(
-            "core/scheduler/linear_warmup", "num_warmup_steps", -1
-        )
-        num_warmup_rate = config.getdefault(
-            "core/scheduler/linear_warmup", "num_warmup_rate", 0.001
-        )
+        num_warmup_steps = config.getdefault("core/scheduler/linear_warmup", "num_warmup_steps", -1)
+        num_warmup_rate = config.getdefault("core/scheduler/linear_warmup", "num_warmup_rate", 0.001)
         num_training_steps = kwargs.get("num_training_steps", 1000000)
         if num_warmup_steps < 0:
             num_warmup_steps = int(num_training_steps * num_warmup_rate)

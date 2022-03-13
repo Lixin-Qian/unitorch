@@ -6,17 +6,25 @@ import torch
 import numpy as np
 from PIL import Image
 from torchvision.transforms import Resize, CenterCrop, ToTensor, Normalize, Compose
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from unitorch.models import GenericOutputs
 
 
 class SeNetProcessor(object):
     def __init__(
         self,
-        pixel_mean=[0.4039, 0.4549, 0.4823],
-        pixel_std=[1.0, 1.0, 1.0],
-        resize_shape=[224, 224],
-        crop_shape=[224, 224],
+        pixel_mean: List[float] = [0.4039, 0.4549, 0.4823],
+        pixel_std: List[float] = [1.0, 1.0, 1.0],
+        resize_shape: Optional[List[int]] = [224, 224],
+        crop_shape: Optional[List[int]] = [224, 224],
     ):
+        """
+        Args:
+            pixel_mean: pixel means to process image
+            pixel_std: pixel std to process image
+            resize_shape: shape to resize image
+            crop_shape: shape to crop image
+        """
         super().__init__()
         self.pixel_mean = torch.tensor(pixel_mean)
         self.pixel_std = torch.tensor(pixel_std)

@@ -7,6 +7,5 @@ pyarrow==6.0.1
 fairseq==0.10.2
 datasets==1.18.2
 configparser==4.0.2
-transformers==4.16.2
-aiohttp==3.7.4.post0
+transformers==4.17.0
 sentencepiece==0.1.91

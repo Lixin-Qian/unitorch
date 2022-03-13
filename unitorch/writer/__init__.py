@@ -21,18 +21,18 @@ class GeneralCSVWriter(object):
     def __init__(
         self,
         headers: Optional[List[str]] = None,
-        sep: str = "\t",
+        sep: Optional[str] = "\t",
     ):
+        """
+        Args:
+            headers: list of keys to output
+            sep: delimiter to the output file
+        """
         self.headers = headers
         self.sep = sep
 
     def __call__(self, outputs: Dict):
-        outputs = dict(
-            {
-                k: [vv if isinstance(vv, str) else json.dumps(vv) for vv in v]
-                for k, v in outputs.items()
-            }
-        )
+        outputs = dict({k: [vv if isinstance(vv, str) else json.dumps(vv) for vv in v] for k, v in outputs.items()})
 
         outputs = pd.DataFrame(outputs)
 

@@ -22,16 +22,18 @@ class ViTMAEForPretrain(GenericModel):
         self,
         config_path: str,
     ):
+        """
+        Args:
+            config_path: config file path to vit mae model
+        """
         super().__init__()
         self.config = ViTMAEConfig.from_json_file(config_path)
 
         self.vit = ViTMAEModel(self.config)
-        self.decoder = ViTMAEDecoder(
-            self.config, num_patches=self.vit.embeddings.num_patches
-        )
+        self.decoder = ViTMAEDecoder(self.config, num_patches=self.vit.embeddings.num_patches)
         self.init_weights()
 
-    def patchify(self, imgs):
+    def _patchify(self, imgs):
         """
         imgs: (N, 3, H, W) x: (N, L, patch_size**2 *3)
         """
@@ -44,24 +46,11 @@ class ViTMAEForPretrain(GenericModel):
         x = x.reshape(shape=(imgs.shape[0], h * w, p ** 2 * 3))
         return x
 
-    def unpatchify(self, x):
-        """
-        x: (N, L, patch_size**2 *3) imgs: (N, 3, H, W)
-        """
-        p = self.vit.embeddings.patch_embeddings.patch_size[0]
-        h = w = int(x.shape[1] ** 0.5)
-        assert h * w == x.shape[1]
-
-        x = x.reshape(shape=(x.shape[0], h, w, p, p, 3))
-        x = torch.einsum("nhwpqc->nchpwq", x)
-        imgs = x.reshape(shape=(x.shape[0], 3, h * p, h * p))
-        return imgs
-
-    def forward_loss(self, imgs, pred, mask):
+    def _forward_loss(self, imgs, pred, mask):
         """
         imgs: [N, 3, H, W] pred: [N, L, p*p*3] mask: [N, L], 0 is keep, 1 is remove,
         """
-        target = self.patchify(imgs)
+        target = self._patchify(imgs)
         if self.config.norm_pix_loss:
             mean = target.mean(dim=-1, keepdim=True)
             var = target.var(dim=-1, keepdim=True)
@@ -79,6 +68,10 @@ class ViTMAEForPretrain(GenericModel):
         output_attentions=None,
         output_hidden_states=None,
     ):
+        """
+        Args:
+            pixel_values: pixels of image
+        """
         outputs = self.vit(
             pixel_values,
             output_attentions=output_attentions,
@@ -92,4 +85,4 @@ class ViTMAEForPretrain(GenericModel):
         decoder_outputs = self.decoder(latent, ids_restore)  # [N, L, p*p*3]
         logits = decoder_outputs.logits
 
-        return self.forward_loss(pixel_values, logits, mask)
+        return self._forward_loss(pixel_values, logits, mask)

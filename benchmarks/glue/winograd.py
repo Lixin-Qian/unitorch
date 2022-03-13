@@ -5,11 +5,12 @@ import torch
 import torch.nn.functional as F
 from datasets import load_dataset
 from torch.cuda.amp import autocast
-from unitorch import hf_cached_path
+from collections import OrderedDict
 from transformers import RobertaTokenizer, DebertaTokenizer
 from unitorch.models import GenericModel, GenericOutputs, _truncate_seq_pair
 from unitorch.models.roberta import RobertaForMaskLM
 from unitorch.models.deberta import DebertaForMaskLM
+from unitorch.cli import cached_path
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
@@ -20,16 +21,18 @@ from unitorch.cli.models import (
     ClassificationOutputs,
     LossOutputs,
     BaseInputs,
+    ListInputs,
     BaseTargets,
     ClassificationTargets,
 )
+from unitorch.cli.models.roberta import pretrained_roberta_infos
+from unitorch.cli.models.deberta import pretrained_deberta_infos
 
 
-@register_model("benchmarks/model/classification/winograd")
-class WinogradModel(GenericModel):
+@register_model("benchmarks/model/glue/winograd/roberta")
+class WinogradRobertaModel(RobertaForMaskLM):
     def __init__(
         self,
-        model_name,
         config_path,
         mask_token_id,
         margin_alpha=5.0,
@@ -37,39 +40,35 @@ class WinogradModel(GenericModel):
         use_margin_loss=False,
         gradient_checkpointing=False,
     ):
-        super().__init__()
-        if model_name == "roberta":
-            self.model = RobertaForMaskLM(
-                config_path,
-                gradient_checkpointing=gradient_checkpointing,
-            )
-
-        if model_name == "deberta":
-            self.model = DebertaForMaskLM(
-                config_path,
-                gradient_checkpointing=gradient_checkpointing,
-            )
-
+        super().__init__(
+            config_path,
+            gradient_checkpointing=gradient_checkpointing,
+        )
         self.mask_token_id = mask_token_id
         self.margin_alpha = margin_alpha
         self.margin_beta = margin_beta
         self.use_margin_loss = use_margin_loss
 
     @classmethod
-    @add_default_section_for_init("benchmarks/model/classification/winograd")
+    @add_default_section_for_init("benchmarks/model/glue/winograd/roberta")
     def from_core_configure(cls, config, **kwargs):
-        config.set_default_section("benchmarks/model/classification/winograd")
-        config_path = config.getoption("config_path", None)
-        config_path = hf_cached_path(config_path)
+        config.set_default_section("benchmarks/model/glue/winograd/roberta")
+        pretrained_name = config.getoption("pretrained_name", "default-roberta")
+        config_name_or_path = config.getoption("config_path", pretrained_name)
+        config_path = (
+            pretrained_roberta_infos[config_name_or_path]["config"]
+            if config_name_or_path in pretrained_roberta_infos
+            else config_name_or_path
+        )
 
-        model_name = config.getoption("model_name", None)
+        config_path = cached_path(config_path)
+
         mask_token_id = config.getoption("mask_token_id", 50264)
         margin_alpha = config.getoption("margin_alpha", 5.0)
         margin_beta = config.getoption("margin_beta", 0.4)
         use_margin_loss = config.getoption("use_margin_loss", False)
         gradient_checkpointing = config.getoption("gradient_checkpointing", False)
         inst = cls(
-            model_name=model_name,
             config_path=config_path,
             mask_token_id=mask_token_id,
             margin_alpha=margin_alpha,
@@ -78,20 +77,36 @@ class WinogradModel(GenericModel):
             gradient_checkpointing=gradient_checkpointing,
         )
 
-        pretrained_weight_path = config.getoption("pretrained_weight_path", None)
-        pretrained_weight_path = hf_cached_path(pretrained_weight_path)
-        inst.model.from_pretrained(pretrained_weight_path)
+        if pretrained_name is not None:
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
+            weight_path = (
+                pretrained_roberta_infos[pretrained_name_or_path]["weight"]
+                if pretrained_name_or_path in pretrained_roberta_infos
+                and "weight" in pretrained_roberta_infos[pretrained_name_or_path]
+                else pretrained_name_or_path
+            )
+            inst.from_pretrained(weight_path)
 
         return inst
 
     def get_scores(self, tokens, attn_mask, seg_ids, pos_ids, mask):
-        new_tokens = tokens.clone()
-        new_tokens[mask.bool()] = self.mask_token_id
-        logits = self.model(new_tokens, attn_mask, seg_ids, pos_ids)
-        lprobs = F.log_softmax(logits, dim=-1, dtype=torch.float)
-        scores = lprobs.gather(2, tokens.unsqueeze(-1)).squeeze(-1)
-        mask = mask.type_as(scores)
-        scores = (scores * mask).sum(dim=-1) / mask.sum(dim=-1)
+        scores = []
+        for _tokens, _attn_mask, _seg_ids, _pos_ids, _mask in zip(tokens, attn_mask, seg_ids, pos_ids, mask):
+            if _tokens.dim() == 1:
+                _tokens, _attn_mask, _seg_ids, _pos_ids, _mask = (
+                    _tokens.unsqueeze(0),
+                    _attn_mask.unsqueeze(0),
+                    _seg_ids.unsqueeze(0),
+                    _pos_ids.unsqueeze(0),
+                    _mask.unsqueeze(0),
+                )
+            _new_tokens = _tokens.clone()
+            _new_tokens[_mask.bool()] = self.mask_token_id
+            _logits = super().forward(_new_tokens, _attn_mask, _seg_ids, _pos_ids)
+            _lprobs = F.log_softmax(_logits, dim=-1, dtype=torch.float)
+            _scores = _lprobs.gather(2, _tokens.unsqueeze(-1)).squeeze(-1)
+            _mask = _mask.type_as(_scores)
+            scores.append((_scores * _mask).sum(dim=-1) / _mask.sum(dim=-1))
         return scores
 
     @autocast()
@@ -115,11 +130,6 @@ class WinogradModel(GenericModel):
             query_pos_ids,
             query_mlm_mask,
         )
-        cands_tokens_ids = cands_tokens_ids.reshape(-1, *cands_tokens_ids.size()[2:])
-        cands_attn_mask = cands_attn_mask.reshape(-1, *cands_attn_mask.size()[2:])
-        cands_seg_ids = cands_seg_ids.reshape(-1, *cands_seg_ids.size()[2:])
-        cands_pos_ids = cands_pos_ids.reshape(-1, *cands_pos_ids.size()[2:])
-        cands_mlm_mask = cands_mlm_mask.reshape(-1, *cands_mlm_mask.size()[2:])
         cands_scores = self.get_scores(
             cands_tokens_ids,
             cands_attn_mask,
@@ -127,58 +137,186 @@ class WinogradModel(GenericModel):
             cands_pos_ids,
             cands_mlm_mask,
         )
-        cands_scores = cands_scores.reshape(
-            query_scores.size(0), -1, *cands_scores.size()[1:]
-        )
         if self.training:
             if self.use_margin_loss:
                 loss = (
-                    (
-                        -query_scores.unsqueeze(dim=1)
-                        + self.margin_alpha
-                        * (
-                            cands_scores
-                            - query_scores.unsqueeze(dim=1)
-                            + self.margin_beta
-                        ).clamp(min=0)
+                    torch.stack(
+                        [
+                            torch.sum(
+                                -query_score
+                                + self.margin_alpha * (cands_score - query_score + self.margin_beta).clamp(min=0)
+                            )
+                            for query_score, cands_score in zip(query_scores, cands_scores)
+                        ]
                     )
                     .sum(dim=-1)
                     .mean()
                 )
             else:
-                query_scores = query_scores.unsqueeze(dim=1)
-                loss = F.cross_entropy(
-                    torch.cat([query_scores, cands_scores], dim=1),
-                    torch.zeros(query_scores.size(0)).to(query_scores).long(),
-                )
+                loss = torch.stack(
+                    [
+                        F.cross_entropy(
+                            torch.cat([query_score, cands_score], dim=0).unsqueeze(0),
+                            torch.zeros(query_score.size(0)).to(query_score).long(),
+                        ).to(query_score.device)
+                        for query_score, cands_score in zip(query_scores, cands_scores)
+                    ]
+                ).mean()
             return LossOutputs(loss=loss)
 
-        outputs = (query_scores.unsqueeze(dim=1) >= cands_scores).all(dim=-1).int()
+        outputs = torch.tensor(
+            [(query_score >= cands_score).all().int() for query_score, cands_score in zip(query_scores, cands_scores)]
+        )
         return ClassificationOutputs(outputs=outputs)
 
-    def from_checkpoint(
-        self,
-        ckpt_dir="./cache",
-        weight_name="pytorch_model.bin",
-        **kwargs,
-    ):
-        self.model.from_checkpoint(ckpt_dir, weight_name, **kwargs)
 
-    def save_checkpoint(
+@register_model("benchmarks/model/glue/winograd/deberta")
+class WinogradDebertaModel(DebertaForMaskLM):
+    def __init__(
         self,
-        ckpt_dir="./cache",
-        weight_name="pytorch_model.bin",
-        **kwargs,
+        config_path,
+        mask_token_id,
+        margin_alpha=5.0,
+        margin_beta=0.4,
+        use_margin_loss=False,
+        gradient_checkpointing=False,
     ):
-        self.model.save_checkpoint(ckpt_dir, weight_name, **kwargs)
+        super().__init__(
+            config_path,
+            gradient_checkpointing=gradient_checkpointing,
+        )
+        self.mask_token_id = mask_token_id
+        self.margin_alpha = margin_alpha
+        self.margin_beta = margin_beta
+        self.use_margin_loss = use_margin_loss
 
-    def from_pretrained(
+    @classmethod
+    @add_default_section_for_init("benchmarks/model/glue/winograd/deberta")
+    def from_core_configure(cls, config, **kwargs):
+        config.set_default_section("benchmarks/model/glue/winograd/deberta")
+        pretrained_name = config.getoption("pretrained_name", "default-deberta")
+        config_name_or_path = config.getoption("config_path", pretrained_name)
+        config_path = (
+            pretrained_deberta_infos[config_name_or_path]["config"]
+            if config_name_or_path in pretrained_deberta_infos
+            else config_name_or_path
+        )
+
+        config_path = cached_path(config_path)
+
+        mask_token_id = config.getoption("mask_token_id", 50264)
+        margin_alpha = config.getoption("margin_alpha", 5.0)
+        margin_beta = config.getoption("margin_beta", 0.4)
+        use_margin_loss = config.getoption("use_margin_loss", False)
+        gradient_checkpointing = config.getoption("gradient_checkpointing", False)
+        inst = cls(
+            config_path=config_path,
+            mask_token_id=mask_token_id,
+            margin_alpha=margin_alpha,
+            margin_beta=margin_beta,
+            use_margin_loss=use_margin_loss,
+            gradient_checkpointing=gradient_checkpointing,
+        )
+
+        if pretrained_name is not None:
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
+            weight_path = (
+                pretrained_deberta_infos[pretrained_name_or_path]["weight"]
+                if pretrained_name_or_path in pretrained_deberta_infos
+                and "weight" in pretrained_deberta_infos[pretrained_name_or_path]
+                else pretrained_name_or_path
+            )
+            inst.from_pretrained(
+                weight_path,
+                replace_keys=OrderedDict(
+                    {
+                        "lm_predictions.lm_head.bias": "cls.predictions.bias",
+                        "lm_predictions.lm_head": "cls.predictions.transform",
+                    }
+                ),
+            )
+
+        return inst
+
+    def get_scores(self, tokens, attn_mask, seg_ids, pos_ids, mask):
+        scores = []
+        for _tokens, _attn_mask, _seg_ids, _pos_ids, _mask in zip(tokens, attn_mask, seg_ids, pos_ids, mask):
+            if _tokens.dim() == 1:
+                _tokens, _attn_mask, _seg_ids, _pos_ids, _mask = (
+                    _tokens.unsqueeze(0),
+                    _attn_mask.unsqueeze(0),
+                    _seg_ids.unsqueeze(0),
+                    _pos_ids.unsqueeze(0),
+                    _mask.unsqueeze(0),
+                )
+            _new_tokens = _tokens.clone()
+            _new_tokens[_mask.bool()] = self.mask_token_id
+            _logits = super().forward(_new_tokens, _attn_mask, _seg_ids, _pos_ids)
+            _lprobs = F.log_softmax(_logits, dim=-1, dtype=torch.float)
+            _scores = _lprobs.gather(2, _tokens.unsqueeze(-1)).squeeze(-1)
+            _mask = _mask.type_as(_scores)
+            scores.append((_scores * _mask).sum(dim=-1) / _mask.sum(dim=-1))
+        return scores
+
+    @autocast()
+    def forward(
         self,
-        weight_path=None,
-        replace_keys=dict(),
-        **kwargs,
+        query_tokens_ids,
+        query_attn_mask,
+        query_seg_ids,
+        query_pos_ids,
+        query_mlm_mask,
+        cands_tokens_ids,
+        cands_attn_mask,
+        cands_seg_ids,
+        cands_pos_ids,
+        cands_mlm_mask,
     ):
-        self.model.from_pretrained(weight_path, replace_keys, **kwargs)
+        query_scores = self.get_scores(
+            query_tokens_ids,
+            query_attn_mask,
+            query_seg_ids,
+            query_pos_ids,
+            query_mlm_mask,
+        )
+        cands_scores = self.get_scores(
+            cands_tokens_ids,
+            cands_attn_mask,
+            cands_seg_ids,
+            cands_pos_ids,
+            cands_mlm_mask,
+        )
+        if self.training:
+            if self.use_margin_loss:
+                loss = (
+                    torch.stack(
+                        [
+                            torch.sum(
+                                -query_score
+                                + self.margin_alpha * (cands_score - query_score + self.margin_beta).clamp(min=0)
+                            )
+                            for query_score, cands_score in zip(query_scores, cands_scores)
+                        ]
+                    )
+                    .sum(dim=-1)
+                    .mean()
+                )
+            else:
+                loss = torch.stack(
+                    [
+                        F.cross_entropy(
+                            torch.cat([query_score, cands_score], dim=0).unsqueeze(0),
+                            torch.zeros(query_score.size(0)).to(query_score).long(),
+                        ).to(query_score.device)
+                        for query_score, cands_score in zip(query_scores, cands_scores)
+                    ]
+                ).mean()
+            return LossOutputs(loss=loss)
+
+        outputs = torch.tensor(
+            [(query_score >= cands_score).all().int() for query_score, cands_score in zip(query_scores, cands_scores)]
+        )
+        return ClassificationOutputs(outputs=outputs)
 
 
 # processor
@@ -229,11 +367,7 @@ def filter_noun_chunks(
     exact_match=False,
 ):
     if exclude_pronouns:
-        chunks = [
-            np
-            for np in chunks
-            if (np.lemma_ != "-PRON-" and not all(tok.pos_ == "PRON" for tok in np))
-        ]
+        chunks = [np for np in chunks if (np.lemma_ != "-PRON-" and not all(tok.pos_ == "PRON" for tok in np))]
 
     if exclude_query is not None:
         excl_txt = [exclude_query.lower()]
@@ -242,9 +376,7 @@ def filter_noun_chunks(
             lower_chunk = chunk.text.lower()
             found = False
             for excl in excl_txt:
-                if (
-                    not exact_match and (lower_chunk in excl or excl in lower_chunk)
-                ) or lower_chunk == excl:
+                if (not exact_match and (lower_chunk in excl or excl in lower_chunk)) or lower_chunk == excl:
                     found = True
                     break
             if not found:
@@ -257,9 +389,7 @@ def filter_noun_chunks(
 class WinogradProcessor(object):
     def __init__(
         self,
-        processor_name: str,
-        vocab_path: str,
-        merge_path: str,
+        tokenizer: str,
         max_seq_length: int = 128,
         source_type_id: int = 0,
         target_type_id: int = 0,
@@ -269,17 +399,8 @@ class WinogradProcessor(object):
 
         self.nlp = spacy.load("en_core_web_lg")
         self.detok = MosesDetokenizer(lang="en")
+        self.tokenizer = tokenizer
 
-        if processor_name == "roberta":
-            self.tokenizer = RobertaTokenizer(
-                vocab_path,
-                merge_path,
-            )
-        if processor_name == "deberta":
-            self.tokenizer = DebertaTokenizer(
-                vocab_path,
-                merge_path,
-            )
         self.max_seq_length = max_seq_length
         self.source_type_id = source_type_id
         self.target_type_id = target_type_id
@@ -415,18 +536,12 @@ class WinogradProcessor(object):
             if span1_text.endswith("'s"):
                 span1_text = span1_text[:-2]
         if sentence1.lower().find(span1_text.lower()) != -1:
-            span1_index = sentence1[: sentence1.lower().find(span1_text.lower())].count(
-                " "
-            )
+            span1_index = sentence1[: sentence1.lower().find(span1_text.lower())].count(" ")
         else:
             span1_index = -1
         find_index = len(" ".join(sentence1.split(" ")[:span2_index]))
-        span2_index = sentence1[
-            : sentence1.lower().find(span2_text.lower(), find_index)
-        ].count(" ")
-        return self._preprocess_wsc(
-            sentence1, span1_index, span1_text, span2_index, span2_text
-        )
+        span2_index = sentence1[: sentence1.lower().find(span2_text.lower(), find_index)].count(" ")
+        return self._preprocess_wsc(sentence1, span1_index, span1_text, span2_index, span2_text)
 
     def _preprocess_wsc(
         self,
@@ -493,9 +608,7 @@ class WinogradProcessor(object):
         prefix_tokens = self.tokenizer.tokenize(prefix)
         text_tokens = self.tokenizer.tokenize(text)
         suffix_tokens = self.tokenizer.tokenize(suffix)
-        _truncate_seq_pair(
-            prefix_tokens, suffix_tokens, self.max_seq_length - len(text_tokens) - 2
-        )
+        _truncate_seq_pair(prefix_tokens, suffix_tokens, self.max_seq_length - len(text_tokens) - 2)
         prefix_tokens = [self.bos_token] + prefix_tokens
         suffix_tokens = suffix_tokens + [self.eos_token]
         tokens = prefix_tokens + text_tokens + suffix_tokens
@@ -506,12 +619,7 @@ class WinogradProcessor(object):
         tokens_ids += len(padding) * [self.pad_token_id]
         tokens_mask += padding
         segment_ids += len(padding) * [self.target_type_id]
-        mlm_mask = (
-            [0] * len(prefix_tokens)
-            + [1] * len(text_tokens)
-            + [0] * len(suffix_tokens)
-            + padding
-        )
+        mlm_mask = [0] * len(prefix_tokens) + [1] * len(text_tokens) + [0] * len(suffix_tokens) + padding
         return GenericOutputs(
             tokens_ids=torch.tensor(tokens_ids, dtype=torch.long),
             seg_ids=torch.tensor(segment_ids, dtype=torch.long),
@@ -530,7 +638,7 @@ class WinogradProcessor(object):
 
 
 class WnliDataset(object):
-    def __init__(self, processor, split, max_num_cands=10):
+    def __init__(self, processor, split):
         if split == "train":
             self.dataset = load_dataset("super_glue", "wsc", split=split)
             self.dataset = self.dataset.filter(lambda v: v["label"] == 1)
@@ -539,7 +647,6 @@ class WnliDataset(object):
 
         self.split = split
         self.processor = processor
-        self.max_num_cands = max_num_cands
 
     def __getitem__(self, idx):
         row = self.dataset[idx]
@@ -553,29 +660,16 @@ class WnliDataset(object):
                 row["span2_text"],
             )
         else:
-            outputs = self.processor._preprocess_wnli(
-                row["sentence1"], row["sentence2"]
-            )
+            outputs = self.processor._preprocess_wnli(row["sentence1"], row["sentence2"])
 
         prefix = outputs.prefix
         suffix = outputs.suffix
         query = outputs.query
         cands = outputs.cands
 
-        while len(cands) < self.max_num_cands:
-            cands += cands
         query_outputs = self.processor._tokenize(prefix, query, suffix)
-        cands_outputs = [
-            self.processor._tokenize(prefix, cand, suffix)
-            for cand in cands[: self.max_num_cands]
-        ]
-        (
-            query_tokens_ids,
-            query_attn_mask,
-            query_seg_ids,
-            query_pos_ids,
-            query_mlm_mask,
-        ) = (
+        cands_outputs = [self.processor._tokenize(prefix, cand, suffix) for cand in cands]
+        (query_tokens_ids, query_attn_mask, query_seg_ids, query_pos_ids, query_mlm_mask,) = (
             query_outputs.tokens_ids,
             query_outputs.attn_mask,
             query_outputs.seg_ids,
@@ -589,7 +683,7 @@ class WnliDataset(object):
         cands_pos_ids = torch.stack([output.pos_ids for output in cands_outputs])
         cands_mlm_mask = torch.stack([output.mlm_mask for output in cands_outputs])
 
-        inputs = BaseInputs(
+        inputs = ListInputs(
             query_tokens_ids=query_tokens_ids,
             query_attn_mask=query_attn_mask,
             query_seg_ids=query_seg_ids,
@@ -616,7 +710,7 @@ class WnliDataset(object):
 
 
 class WscDataset(object):
-    def __init__(self, processor, split, max_num_cands=10):
+    def __init__(self, processor, split):
         if split == "train":
             self.dataset = load_dataset("super_glue", "wsc", split=split)
             self.dataset = self.dataset.filter(lambda v: v["label"] == 1)
@@ -624,7 +718,6 @@ class WscDataset(object):
             self.dataset = load_dataset("super_glue", "wsc", split=split)
         self.split = split
         self.processor = processor
-        self.max_num_cands = max_num_cands
 
     def __getitem__(self, idx):
         row = self.dataset[idx]
@@ -642,20 +735,9 @@ class WscDataset(object):
         query = outputs.query
         cands = outputs.cands
 
-        while len(cands) < self.max_num_cands:
-            cands += cands
         query_outputs = self.processor._tokenize(prefix, query, suffix)
-        cands_outputs = [
-            self.processor._tokenize(prefix, cand, suffix)
-            for cand in cands[: self.max_num_cands]
-        ]
-        (
-            query_tokens_ids,
-            query_attn_mask,
-            query_seg_ids,
-            query_pos_ids,
-            query_mlm_mask,
-        ) = (
+        cands_outputs = [self.processor._tokenize(prefix, cand, suffix) for cand in cands]
+        (query_tokens_ids, query_attn_mask, query_seg_ids, query_pos_ids, query_mlm_mask,) = (
             query_outputs.tokens_ids,
             query_outputs.attn_mask,
             query_outputs.seg_ids,
@@ -669,7 +751,7 @@ class WscDataset(object):
         cands_pos_ids = torch.stack([output.pos_ids for output in cands_outputs])
         cands_mlm_mask = torch.stack([output.mlm_mask for output in cands_outputs])
 
-        inputs = BaseInputs(
+        inputs = ListInputs(
             query_tokens_ids=query_tokens_ids,
             query_attn_mask=query_attn_mask,
             query_seg_ids=query_seg_ids,
@@ -695,38 +777,46 @@ class WscDataset(object):
         return len(self.dataset)
 
 
-@register_dataset("benchmarks/dataset/glue/wnli")
-class WinogradDatasets(object):
+@register_dataset("benchmarks/dataset/glue/wnli/roberta")
+class WnliRobertaDatasets(object):
     def __init__(
         self,
-        processor_name,
         vocab_path,
         merge_path,
         max_seq_length=128,
-        max_num_cands=10,
         test_split="test",
     ):
         self.__datasets__ = dict()
+        tokenizer = RobertaTokenizer(vocab_path, merge_path)
         for split in ["train", "dev", "test"]:
             processor = WinogradProcessor(
-                processor_name,
-                vocab_path,
-                merge_path,
+                tokenizer,
                 max_seq_length,
             )
             new_split = "validation" if split == "dev" else split
             new_split = test_split if split == "test" else new_split
-            self.__datasets__[split] = WnliDataset(processor, new_split, max_num_cands)
+            self.__datasets__[split] = WnliDataset(processor, new_split)
 
     @classmethod
-    @add_default_section_for_init("benchmarks/dataset/glue/wnli")
+    @add_default_section_for_init("benchmarks/dataset/glue/wnli/roberta")
     def from_core_configure(cls, config, **kwargs):
-        config.set_default_section("benchmarks/dataset/glue/wnli")
-        vocab_path = config.getoption("vocab_path", None)
-        merge_path = config.getoption("merge_path", None)
-        vocab_path = hf_cached_path(vocab_path)
-        merge_path = hf_cached_path(merge_path)
+        config.set_default_section("benchmarks/dataset/glue/wnli/roberta")
+        pretrained_name = config.getoption("pretrained_name", "default-roberta")
+        vocab_name_or_path = config.getoption("vocab_path", pretrained_name)
+        vocab_path = (
+            pretrained_roberta_infos[vocab_name_or_path]["vocab"]
+            if vocab_name_or_path in pretrained_roberta_infos
+            else vocab_name_or_path
+        )
+        vocab_path = cached_path(vocab_path)
 
+        merge_name_or_path = config.getoption("merge_path", pretrained_name)
+        merge_path = (
+            pretrained_roberta_infos[merge_name_or_path]["merge"]
+            if merge_name_or_path in pretrained_roberta_infos
+            else merge_name_or_path
+        )
+        merge_path = cached_path(merge_path)
         return {
             "vocab_path": vocab_path,
             "merge_path": merge_path,
@@ -736,38 +826,144 @@ class WinogradDatasets(object):
         return self.__datasets__.get(split)
 
 
-@register_dataset("benchmarks/dataset/superglue/wsc")
-class WinogradDatasets(object):
+@register_dataset("benchmarks/dataset/glue/wnli/deberta")
+class WnliDebertaDatasets(object):
     def __init__(
         self,
-        processor_name,
         vocab_path,
         merge_path,
         max_seq_length=128,
-        max_num_cands=10,
         test_split="test",
     ):
         self.__datasets__ = dict()
+        tokenizer = DebertaTokenizer(vocab_path, merge_path)
         for split in ["train", "dev", "test"]:
             processor = WinogradProcessor(
-                processor_name,
-                vocab_path,
-                merge_path,
+                tokenizer,
                 max_seq_length,
             )
             new_split = "validation" if split == "dev" else split
             new_split = test_split if split == "test" else new_split
-            self.__datasets__[split] = WscDataset(processor, new_split, max_num_cands)
+            self.__datasets__[split] = WnliDataset(processor, new_split)
 
     @classmethod
-    @add_default_section_for_init("benchmarks/dataset/superglue/wsc")
+    @add_default_section_for_init("benchmarks/dataset/glue/wnli/deberta")
     def from_core_configure(cls, config, **kwargs):
-        config.set_default_section("benchmarks/dataset/superglue/wsc")
-        vocab_path = config.getoption("vocab_path", None)
-        merge_path = config.getoption("merge_path", None)
-        vocab_path = hf_cached_path(vocab_path)
-        merge_path = hf_cached_path(merge_path)
+        config.set_default_section("benchmarks/dataset/glue/wnli/deberta")
+        pretrained_name = config.getoption("pretrained_name", "default-deberta")
+        vocab_name_or_path = config.getoption("vocab_path", pretrained_name)
+        vocab_path = (
+            pretrained_deberta_infos[vocab_name_or_path]["vocab"]
+            if vocab_name_or_path in pretrained_deberta_infos
+            else vocab_name_or_path
+        )
+        vocab_path = cached_path(vocab_path)
 
+        merge_name_or_path = config.getoption("merge_path", pretrained_name)
+        merge_path = (
+            pretrained_deberta_infos[merge_name_or_path]["merge"]
+            if merge_name_or_path in pretrained_deberta_infos
+            else merge_name_or_path
+        )
+        merge_path = cached_path(merge_path)
+        return {
+            "vocab_path": vocab_path,
+            "merge_path": merge_path,
+        }
+
+    def get(self, split: str = "train"):
+        return self.__datasets__.get(split)
+
+
+@register_dataset("benchmarks/dataset/superglue/wsc/roberta")
+class WSCRobertaDatasets(object):
+    def __init__(
+        self,
+        vocab_path,
+        merge_path,
+        max_seq_length=128,
+        test_split="test",
+    ):
+        self.__datasets__ = dict()
+        tokenizer = RobertaTokenizer(vocab_path, merge_path)
+        for split in ["train", "dev", "test"]:
+            processor = WinogradProcessor(
+                tokenizer,
+                max_seq_length,
+            )
+            new_split = "validation" if split == "dev" else split
+            new_split = test_split if split == "test" else new_split
+            self.__datasets__[split] = WscDataset(processor, new_split)
+
+    @classmethod
+    @add_default_section_for_init("benchmarks/dataset/superglue/wsc/roberta")
+    def from_core_configure(cls, config, **kwargs):
+        config.set_default_section("benchmarks/dataset/superglue/roberta")
+        pretrained_name = config.getoption("pretrained_name", "default-roberta")
+        vocab_name_or_path = config.getoption("vocab_path", pretrained_name)
+        vocab_path = (
+            pretrained_roberta_infos[vocab_name_or_path]["vocab"]
+            if vocab_name_or_path in pretrained_roberta_infos
+            else vocab_name_or_path
+        )
+        vocab_path = cached_path(vocab_path)
+
+        merge_name_or_path = config.getoption("merge_path", pretrained_name)
+        merge_path = (
+            pretrained_roberta_infos[merge_name_or_path]["merge"]
+            if merge_name_or_path in pretrained_roberta_infos
+            else merge_name_or_path
+        )
+        merge_path = cached_path(merge_path)
+        return {
+            "vocab_path": vocab_path,
+            "merge_path": merge_path,
+        }
+
+    def get(self, split: str = "train"):
+        return self.__datasets__.get(split)
+
+
+@register_dataset("benchmarks/dataset/superglue/wsc/deberta")
+class WSCDebertaDatasets(object):
+    def __init__(
+        self,
+        vocab_path,
+        merge_path,
+        max_seq_length=128,
+        test_split="test",
+    ):
+        self.__datasets__ = dict()
+        tokenizer = DebertaTokenizer(vocab_path, merge_path)
+        for split in ["train", "dev", "test"]:
+            processor = WinogradProcessor(
+                tokenizer,
+                max_seq_length,
+            )
+            new_split = "validation" if split == "dev" else split
+            new_split = test_split if split == "test" else new_split
+            self.__datasets__[split] = WscDataset(processor, new_split)
+
+    @classmethod
+    @add_default_section_for_init("benchmarks/dataset/superglue/wsc/deberta")
+    def from_core_configure(cls, config, **kwargs):
+        config.set_default_section("benchmarks/dataset/superglue/deberta")
+        pretrained_name = config.getoption("pretrained_name", "default-deberta")
+        vocab_name_or_path = config.getoption("vocab_path", pretrained_name)
+        vocab_path = (
+            pretrained_deberta_infos[vocab_name_or_path]["vocab"]
+            if vocab_name_or_path in pretrained_deberta_infos
+            else vocab_name_or_path
+        )
+        vocab_path = cached_path(vocab_path)
+
+        merge_name_or_path = config.getoption("merge_path", pretrained_name)
+        merge_path = (
+            pretrained_deberta_infos[merge_name_or_path]["merge"]
+            if merge_name_or_path in pretrained_deberta_infos
+            else merge_name_or_path
+        )
+        merge_path = cached_path(merge_path)
         return {
             "vocab_path": vocab_path,
             "merge_path": merge_path,

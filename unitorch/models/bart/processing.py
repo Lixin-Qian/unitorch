@@ -10,7 +10,7 @@ from transformers import BartTokenizer
 from unitorch.models import HuggingfaceGenerationProcessor
 
 
-def get_bart_tokenizer(
+def _get_bart_tokenizer(
     vocab_path,
     merge_path,
     special_tokens_ids=dict(),
@@ -30,11 +30,19 @@ class BartProcessor(HuggingfaceGenerationProcessor):
         self,
         vocab_path: str,
         merge_path: str,
-        special_tokens_ids: Dict = dict(),
-        max_seq_length: int = 128,
-        max_gen_seq_length: int = 48,
+        special_tokens_ids: Optional[Dict] = dict(),
+        max_seq_length: Optional[int] = 128,
+        max_gen_seq_length: Optional[int] = 48,
     ):
-        tokenizer = get_bart_tokenizer(
+        """
+        Args:
+            vocab_path: vocab file path in bart tokenizer
+            merge_path: merge file path in bart tokenizer
+            special_tokens_ids: special tokens dict in bart tokenizer
+            max_seq_length: max sequence length encode text
+            max_gen_seq_length: max sequence length decode text
+        """
+        tokenizer = _get_bart_tokenizer(
             vocab_path,
             merge_path,
             special_tokens_ids=special_tokens_ids,

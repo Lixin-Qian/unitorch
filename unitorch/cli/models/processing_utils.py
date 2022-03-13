@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from random import random
-from PIL import Image
+from PIL import Image, ImageFile
 from unitorch.models.processing_utils import (
     GeneralizedProcessor as _GeneralizedProcessor,
 )
@@ -35,6 +35,8 @@ from unitorch.cli.models import (
     DetectionTargets,
 )
 
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 ACT2FN = {
     "relu": nn.functional.relu,
     "tanh": torch.tanh,
@@ -43,14 +45,10 @@ ACT2FN = {
 }
 
 
-def get_inputs_outputs(attrs, dtype="BaseInputs"):
+def _process_returns(attrs, dtype="BaseInputs"):
     assert dtype in globals()
     cls = globals()[dtype]
-    assert (
-        isinstance(cls, BaseInputs)
-        or isinstance(cls, BaseOutputs)
-        or isinstance(cls, BaseTargets)
-    )
+    assert issubclass(cls, BaseInputs) or issubclass(cls, BaseOutputs) or issubclass(cls, BaseTargets)
     return cls(attrs)
 
 
@@ -206,11 +204,7 @@ class GeneralizedProcessor(_GeneralizedProcessor):
             outputs.outputs = self.act_fn(outputs.outputs)
 
         if outputs.outputs.dim() == 2:
-            pscore = (
-                outputs.outputs[:, 1]
-                if outputs.outputs.size(-1) > 1
-                else outputs.outputs[:, 0]
-            )
+            pscore = outputs.outputs[:, 1] if outputs.outputs.size(-1) > 1 else outputs.outputs[:, 0]
         else:
             pscore = outputs.outputs
         pscore = list(map(float, pscore))
@@ -224,9 +218,7 @@ class GeneralizedProcessor(_GeneralizedProcessor):
         outputs: Union[ClassificationOutputs, BaseOutputs],
     ):
         if not hasattr(outputs, "outputs"):
-            raise ValueError(
-                f"core/postprocess/classifier_score can't process the outputs"
-            )
+            raise ValueError(f"core/postprocess/classifier_score can't process the outputs")
 
         assert outputs.outputs.dim() == 2
 
@@ -254,9 +246,7 @@ class GeneralizedProcessor(_GeneralizedProcessor):
         outputs: Union[EmbeddingOutputs, BaseOutputs],
     ):
         if not hasattr(outputs, "embedding"):
-            raise ValueError(
-                f"core/postprocess/classifier_score can't process the outputs"
-            )
+            raise ValueError(f"core/postprocess/classifier_score can't process the outputs")
 
         embedding = outputs.embedding
         if embedding.dim() > 2:
@@ -318,7 +308,7 @@ class ImageProcessor(object):
             if doc.status_code != 200 or doc.content == b"":
                 raise ValueError(f"can't find the image {image}")
 
-            return Image.open(io.BytesIO(doc.content))
+            return Image.open(io.BytesIO(doc.content)).convert("RGB")
         except:
             logging.info(f"core/process/read image use fake image for {image}")
             return Image.new("RGB", self.image_size, (255, 255, 255))

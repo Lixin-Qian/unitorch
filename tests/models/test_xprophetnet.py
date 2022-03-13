@@ -4,8 +4,9 @@
 import unitorch
 import torch
 from absl.testing import absltest, parameterized
-from unitorch import set_seed, hf_cached_path
+from unitorch import set_seed
 from unitorch.models.xprophetnet import XProphetNetForGeneration, XProphetNetProcessor
+from unitorch.cli import cached_path
 from unitorch.cli import CoreConfigureParser
 from unitorch.cli.models.xprophetnet.modeling import (
     XProphetNetForGeneration as CLI_XProphetNetForGeneration,
@@ -19,17 +20,15 @@ import pkg_resources
 class XProphetNetTest(parameterized.TestCase):
     def setUp(self):
         set_seed(42)
-        config_path = pkg_resources.resource_filename(
-            "unitorch", "examples/configs/core/generation/xprophetnet.ini"
-        )
+        config_path = pkg_resources.resource_filename("unitorch", "examples/configs/core/generation/xprophetnet.ini")
         self.config = CoreConfigureParser(config_path)
-        self.config_path = hf_cached_path(
+        self.config_path = cached_path(
             "https://huggingface.co/microsoft/xprophetnet-large-wiki100-cased/resolve/main/config.json"
         )
-        self.vocab_path = hf_cached_path(
+        self.vocab_path = cached_path(
             "https://huggingface.co/microsoft/xprophetnet-large-wiki100-cased/resolve/main/prophetnet.tokenizer"
         )
-        self.weight_path = hf_cached_path(
+        self.weight_path = cached_path(
             "https://huggingface.co/microsoft/xprophetnet-large-wiki100-cased/resolve/main/pytorch_model.bin"
         )
 

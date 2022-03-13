@@ -23,6 +23,13 @@ pretrained_clip_infos = {
         "merge": "https://huggingface.co/openai/clip-vit-base-patch32/resolve/main/merges.txt",
         "weight": "https://huggingface.co/openai/clip-vit-base-patch32/resolve/main/pytorch_model.bin",
     },
+    "clip-vit-large-patch14": {
+        "config": "https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/config.json",
+        "vision_config": "https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/preprocessor_config.json",
+        "vocab": "https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/vocab.json",
+        "merge": "https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/merges.txt",
+        "weight": "https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/pytorch_model.bin",
+    },
 }
 
 import unitorch.cli.models.clip.modeling

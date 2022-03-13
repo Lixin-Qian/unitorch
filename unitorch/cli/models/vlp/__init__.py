@@ -5,16 +5,16 @@
 pretrained_vlp_infos = {
     # vlp
     "default-vlp": {
-        "detectron2_config": "https://huggingface.co/fuliucansheng/detection/resolve/main/VLP/FasterRCNN_X_101_64x4d_FPN_2x_config.yaml",
-        "config": "https://huggingface.co/fuliucansheng/detection/resolve/main/VLP/config.json",
-        "vocab": "https://huggingface.co/microsoft/unilm-base-cased/resolve/main/vocab.txt",
+        "detectron2_config": "https://huggingface.co/fuliucansheng/detectron2/resolve/main/vlp/faster_rcnn_x101_64x4d_fpn_2x_config.yaml",
+        "config": "https://huggingface.co/fuliucansheng/detectron2/resolve/main/vlp/config.json",
+        "vocab": "https://huggingface.co/fuliucansheng/detectron2/resolve/main/vlp/vocab.txt",
     },
     "vlp-coco": {
-        "detectron2_config": "https://huggingface.co/fuliucansheng/detection/resolve/main/VLP/FasterRCNN_X_101_64x4d_FPN_2x_config.yaml",
-        "detectron2_weight": "https://huggingface.co/fuliucansheng/detection/resolve/main/VLP/FasterRCNN_X_101_64x4d_FPN_2x_pytorch_model.bin",
-        "config": "https://huggingface.co/fuliucansheng/detection/resolve/main/VLP/config.json",
-        "weight": "https://huggingface.co/fuliucansheng/detection/resolve/main/VLP/pytorch_model.bin",
-        "vocab": "https://huggingface.co/microsoft/unilm-base-cased/resolve/main/vocab.txt",
+        "detectron2_config": "https://huggingface.co/fuliucansheng/detectron2/resolve/main/vlp/faster_rcnn_x101_64x4d_fpn_2x_config.yaml",
+        "detectron2_weight": "https://huggingface.co/fuliucansheng/detectron2/resolve/main/vlp/faster_rcnn_x101_64x4d_fpn_2x_model.bin",
+        "config": "https://huggingface.co/fuliucansheng/detectron2/resolve/main/vlp/config.json",
+        "vocab": "https://huggingface.co/fuliucansheng/detectron2/resolve/main/vlp/vocab.txt",
+        "weight": "https://huggingface.co/fuliucansheng/detectron2/resolve/main/vlp/pytorch_model.bin",
     },
 }
 

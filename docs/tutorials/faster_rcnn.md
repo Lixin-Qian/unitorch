@@ -1,5 +1,5 @@
 
-## FasterRCNN Object Detection
+<h2 align="Center"> <p> FasterRCNN Object Detection </p> </h2>
 
 #### Train with command line
 ##### Step 1: Prepare Customize Dataset

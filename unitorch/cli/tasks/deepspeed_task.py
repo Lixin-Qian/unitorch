@@ -22,6 +22,7 @@ from torch.cuda.amp import autocast, GradScaler
 from torch.utils.data import Dataset
 from multiprocessing import Process, Queue
 from unitorch import set_seed
+from unitorch.cli import cached_path
 from unitorch.cli import (
     register_task,
     registered_model,
@@ -162,9 +163,7 @@ class DistributedSkipSampler(DistributedSampler):
             if padding_size <= len(indices):
                 indices += indices[:padding_size]
             else:
-                indices += (indices * math.ceil(padding_size / len(indices)))[
-                    :padding_size
-                ]
+                indices += (indices * math.ceil(padding_size / len(indices)))[:padding_size]
         else:
             # remove tail of data to make it evenly divisible.
             indices = indices[: self.total_size]
@@ -241,26 +240,12 @@ def get_local_rank():
     return -1
 
 
-def get_deepspeed_config_file(config_file):
-
-    if os.path.exists(config_file):
-        return config_file
-
-    import pkg_resources
-
-    _config_file = pkg_resources.resource_filename("unitorch", config_file)
-    if os.path.exists(_config_file):
-        return _config_file
-
-
 def collate_fn(bufs):
     multi_inputs, multi_targets = list(zip(*bufs))
     if isinstance(multi_inputs[0], BaseInputs):
         inputs = type(multi_inputs[0]).from_list(*multi_inputs)
     else:
-        multi_inputs = [
-            type(_inputs[0]).from_list(*_inputs) for _inputs in list(zip(*multi_inputs))
-        ]
+        multi_inputs = [type(_inputs[0]).from_list(*_inputs) for _inputs in list(zip(*multi_inputs))]
         inputs = BaseInputs()
         for _inputs in multi_inputs:
             inputs.update(_inputs)
@@ -268,10 +253,7 @@ def collate_fn(bufs):
     if isinstance(multi_targets[0], BaseTargets):
         targets = type(multi_targets[0]).from_list(*multi_targets)
     else:
-        multi_targets = [
-            type(_targets[0]).from_list(*_targets)
-            for _targets in list(zip(*multi_targets))
-        ]
+        multi_targets = [type(_targets[0]).from_list(*_targets) for _targets in list(zip(*multi_targets))]
         targets = BaseTargets()
         for _targets in multi_targets:
             targets.update(_targets)
@@ -416,9 +398,7 @@ class DeepspeedTask(object):
 
         if isinstance(outputs[0], LossOutputs):
             outputs = LossOutputs(
-                loss=torch.tensor([output.loss for output in outputs]).to(
-                    device=outputs[0].loss.device
-                )
+                loss=torch.tensor([output.loss for output in outputs]).to(device=outputs[0].loss.device)
             )
             if dist.is_initialized():
                 outputs = outputs.cuda().sync().cpu()
@@ -464,27 +444,19 @@ class DeepspeedTask(object):
             new_score = results.score
             if new_score > self.best_score:
                 self.best_score = new_score
-                base_model = (
-                    self.model.module if hasattr(self.model, "module") else self.model
-                )
+                base_model = self.model.module if hasattr(self.model, "module") else self.model
                 base_model.save_checkpoint(
                     ckpt_dir=ckpt_dir,
                 )
                 if optim:
-                    OptimScheduler(optim).save_checkpoint(
-                        ckpt_dir=ckpt_dir, weight_name="pytorch_optim.bin"
-                    )
+                    OptimScheduler(optim).save_checkpoint(ckpt_dir=ckpt_dir, weight_name="pytorch_optim.bin")
 
                 if scheduler:
-                    OptimScheduler(scheduler).save_checkpoint(
-                        ckpt_dir=ckpt_dir, weight_name="pytorch_scheduler.bin"
-                    )
+                    OptimScheduler(scheduler).save_checkpoint(ckpt_dir=ckpt_dir, weight_name="pytorch_scheduler.bin")
 
             info_path = kwargs.pop("info_path", None)
             if info_path:
-                base_model = (
-                    self.model.module if hasattr(self.model, "module") else self.model
-                )
+                base_model = self.model.module if hasattr(self.model, "module") else self.model
                 base_model.save_checkpoint(
                     ckpt_dir=ckpt_dir,
                     weight_name="pytorch_model_latest.bin",
@@ -545,7 +517,7 @@ class DeepspeedTask(object):
                 if monitor_fn in registered_score
             ]
 
-        config_file = get_deepspeed_config_file(deepspeed_config_path)
+        config_file = cached_path(deepspeed_config_path)
         config_dict = json.load(open(config_file, "r"))
         config_dict["train_micro_batch_size_per_gpu"] = train_batch_size
 
@@ -620,9 +592,7 @@ class DeepspeedTask(object):
         dataset_train = self.datasets.get("train")
         iter_train = DataLoader(
             dataset_train,
-            sampler=train_sampler(dataset_train)
-            if not isinstance(dataset_train, Iterable)
-            else None,
+            sampler=train_sampler(dataset_train) if not isinstance(dataset_train, Iterable) else None,
             batch_size=train_batch_size,
             shuffle=False,
             pin_memory=pin_memory,
@@ -633,9 +603,7 @@ class DeepspeedTask(object):
         dataset_dev = self.datasets.get("dev")
         iter_dev = DataLoader(
             dataset_dev,
-            sampler=dev_sampler(dataset_dev)
-            if not isinstance(dataset_dev, Iterable)
-            else None,
+            sampler=dev_sampler(dataset_dev) if not isinstance(dataset_dev, Iterable) else None,
             batch_size=dev_batch_size,
             shuffle=False,
             pin_memory=pin_memory,
@@ -699,9 +667,7 @@ class DeepspeedTask(object):
                     optim.zero_grad()
 
                 if (step + 1) % log_freq == 0 and global_rank in [-1, 0]:
-                    logging.info(
-                        f"epoch {e} step {step}: loss -- { log_loss / log_freq }"
-                    )
+                    logging.info(f"epoch {e} step {step}: loss -- { log_loss / log_freq }")
                     log_loss = 0
 
                 if (step + 1) % ckpt_freq == 0:
@@ -729,6 +695,8 @@ class DeepspeedTask(object):
                 if scheduler is not None:
                     scheduler.step()
                 optim.zero_grad()
+
+            log_loss = 0
 
             if hasattr(dataset_dev, "set_epoch"):
                 dataset_dev.set_epoch(dev_epoch)
@@ -790,9 +758,7 @@ class DeepspeedTask(object):
         dataset_test = self.datasets.get("test")
         iter_test = DataLoader(
             dataset_test,
-            sampler=sampler(dataset_test)
-            if not isinstance(dataset_test, Iterable)
-            else None,
+            sampler=sampler(dataset_test) if not isinstance(dataset_test, Iterable) else None,
             batch_size=test_batch_size,
             shuffle=False,
             pin_memory=pin_memory,
@@ -825,9 +791,7 @@ class DeepspeedTask(object):
             data_info = DatasetInfo(data_info)
             iter_data = DataLoader(
                 deepcopy(data_info),
-                sampler=sampler(data_info)
-                if not isinstance(dataset_test, Iterable)
-                else None,
+                sampler=sampler(data_info) if not isinstance(dataset_test, Iterable) else None,
                 batch_size=test_batch_size,
                 shuffle=False,
                 pin_memory=pin_memory,

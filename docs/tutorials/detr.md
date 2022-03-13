@@ -1,5 +1,5 @@
 
-## DETR Segmentation
+<h2 align="Center"> <p> DETR Segmentation </p> </h2>
 
 #### Train with command line
 ##### Step 1: Prepare Customize Dataset

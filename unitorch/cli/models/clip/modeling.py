@@ -4,13 +4,13 @@
 import torch
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from torch.cuda.amp import autocast
-from unitorch import hf_cached_path
 from unitorch.models.clip import (
     CLIPForPretrain as _CLIPForPretrain,
     CLIPForClassification as _CLIPForClassification,
     CLIPForTextClassification as _CLIPForTextClassification,
     CLIPForImageClassification as _CLIPForImageClassification,
 )
+from unitorch.cli import cached_path
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
@@ -25,8 +25,8 @@ class CLIPForPretrain(_CLIPForPretrain):
     def __init__(
         self,
         config_path: str,
-        projection_dim: int = 512,
-        freeze_base_model: bool = True,
+        projection_dim: Optional[int] = 512,
+        freeze_base_model: Optional[bool] = True,
         gradient_checkpointing: Optional[bool] = False,
     ):
         super().__init__(
@@ -48,7 +48,7 @@ class CLIPForPretrain(_CLIPForPretrain):
             else config_name_or_path
         )
 
-        config_path = hf_cached_path(config_path)
+        config_path = cached_path(config_path)
 
         projection_dim = config.getoption("projection_dim", 512)
         freeze_base_model = config.getoption("freeze_base_model", True)
@@ -61,9 +61,7 @@ class CLIPForPretrain(_CLIPForPretrain):
             gradient_checkpointing=gradient_checkpointing,
         )
         if pretrained_name is not None:
-            pretrained_name_or_path = config.getoption(
-                "pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_clip_infos[pretrained_name_or_path]["weight"]
                 if pretrained_name_or_path in pretrained_clip_infos
@@ -121,7 +119,7 @@ class CLIPForClassification(_CLIPForClassification):
             else config_name_or_path
         )
 
-        config_path = hf_cached_path(config_path)
+        config_path = cached_path(config_path)
 
         projection_dim = config.getoption("projection_dim", 512)
         num_class = config.getoption("num_class", 1)
@@ -136,9 +134,7 @@ class CLIPForClassification(_CLIPForClassification):
             gradient_checkpointing=gradient_checkpointing,
         )
         if pretrained_name is not None:
-            pretrained_name_or_path = config.getoption(
-                "pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_clip_infos[pretrained_name_or_path]["weight"]
                 if pretrained_name_or_path in pretrained_clip_infos
@@ -196,7 +192,7 @@ class CLIPForTextClassification(_CLIPForTextClassification):
             else config_name_or_path
         )
 
-        config_path = hf_cached_path(config_path)
+        config_path = cached_path(config_path)
 
         projection_dim = config.getoption("projection_dim", 512)
         num_class = config.getoption("num_class", 1)
@@ -211,9 +207,7 @@ class CLIPForTextClassification(_CLIPForTextClassification):
             gradient_checkpointing=gradient_checkpointing,
         )
         if pretrained_name is not None:
-            pretrained_name_or_path = config.getoption(
-                "pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_clip_infos[pretrained_name_or_path]["weight"]
                 if pretrained_name_or_path in pretrained_clip_infos
@@ -269,7 +263,7 @@ class CLIPForImageClassification(_CLIPForImageClassification):
             else config_name_or_path
         )
 
-        config_path = hf_cached_path(config_path)
+        config_path = cached_path(config_path)
 
         projection_dim = config.getoption("projection_dim", 512)
         num_class = config.getoption("num_class", 1)
@@ -284,9 +278,7 @@ class CLIPForImageClassification(_CLIPForImageClassification):
             gradient_checkpointing=gradient_checkpointing,
         )
         if pretrained_name is not None:
-            pretrained_name_or_path = config.getoption(
-                "pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_clip_infos[pretrained_name_or_path]["weight"]
                 if pretrained_name_or_path in pretrained_clip_infos

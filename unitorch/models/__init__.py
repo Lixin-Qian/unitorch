@@ -6,6 +6,7 @@ import torch
 import logging
 import torch.nn as nn
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from collections import OrderedDict
 from transformers.file_utils import is_remote_url
 from unitorch import hf_cached_path
 
@@ -31,6 +32,7 @@ class GenericModel(nn.Module):
             module.bias.data.zero_()
 
     def init_weights(self):
+        """Initialize the weights"""
         self.apply(self._init_weights)
 
     def from_checkpoint(
@@ -39,14 +41,17 @@ class GenericModel(nn.Module):
         weight_name="pytorch_model.bin",
         **kwargs,
     ):
+        """
+        Args:
+            ckpt_dir: checkpoint folder
+            weight_name: checkpoint name
+        """
         weight_path = os.path.join(ckpt_dir, weight_name)
         if not os.path.exists(weight_path):
             return
         state_dict = torch.load(weight_path, map_location="cpu")
         self.load_state_dict(state_dict)
-        logging.info(
-            f"{type(self).__name__} model load weight from checkpoint {weight_path}"
-        )
+        logging.info(f"{type(self).__name__} model load weight from checkpoint {weight_path}")
 
     def save_checkpoint(
         self,
@@ -54,6 +59,11 @@ class GenericModel(nn.Module):
         weight_name="pytorch_model.bin",
         **kwargs,
     ):
+        """
+        Args:
+            ckpt_dir: checkpoint folder
+            weight_name: checkpoint name
+        """
         state_dict = self.state_dict()
         weight_path = os.path.join(ckpt_dir, weight_name)
         torch.save(state_dict, weight_path)
@@ -62,16 +72,19 @@ class GenericModel(nn.Module):
     def from_pretrained(
         self,
         weight_path=None,
-        replace_keys: Dict = dict(),
+        replace_keys: Dict = OrderedDict(),
         **kwargs,
     ):
+        """
+        Args:
+            weight_path: pretrained weight path
+            replace_keys: keys replacement in weight dict
+        """
         if "state_dict" in kwargs:
             state_dict = kwargs.pop("state_dict")
             _self_state_dict = self.state_dict()
             state_dict = {
-                k: v
-                for k, v in state_dict.items()
-                if k in _self_state_dict and v.shape == _self_state_dict[k].shape
+                k: v for k, v in state_dict.items() if k in _self_state_dict and v.shape == _self_state_dict[k].shape
             }
             self.load_state_dict(state_dict, False)
             return
@@ -110,23 +123,23 @@ class GenericModel(nn.Module):
 
         _self_state_dict = self.state_dict()
         state_dict = {
-            k: v
-            for k, v in state_dict.items()
-            if k in _self_state_dict and v.shape == _self_state_dict[k].shape
+            k: v for k, v in state_dict.items() if k in _self_state_dict and v.shape == _self_state_dict[k].shape
         }
 
         self.load_state_dict(state_dict, False)
-        logging.info(
-            f"{type(self).__name__} model load weight from pretrain {weight_path}"
-        )
+        logging.info(f"{type(self).__name__} model load weight from pretrain {weight_path}")
 
 
 class GenericOutputs(object):
     def __init__(
         self,
-        attrs: Dict = dict(),
+        attrs: Dict = OrderedDict(),
         **kwargs,
     ):
+        """
+        Args:
+            attrs: attrs dict to init outputs
+        """
         for k, v in {**attrs, **kwargs}.items():
             setattr(self, k, v)
 

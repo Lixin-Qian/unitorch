@@ -40,15 +40,10 @@ def replace(target_obj):
         setattr(new_obj, "__replaced_class__", target_obj)
         OPTIMIZED_CLASSES[target_obj] = new_obj
         for k, v in list(sys.modules.items()):
-            if (
-                target_obj.__name__ in v.__dict__
-                and v.__dict__[target_obj.__name__] is target_obj
-            ):
+            if target_obj.__name__ in v.__dict__ and v.__dict__[target_obj.__name__] is target_obj:
                 delattr(sys.modules[k], target_obj.__name__)
                 setattr(sys.modules[k], target_obj.__name__, new_obj)
-                logging.debug(
-                    "In module {}, {} is replaced by {}".format(k, target_obj, new_obj)
-                )
+                logging.debug("In module {}, {} is replaced by {}".format(k, target_obj, new_obj))
             # replace target_obj if it is used as the base classes.
             for key in list(v.__dict__.keys()):
                 if (
@@ -61,9 +56,7 @@ def replace(target_obj):
                     bases[idx] = new_obj
                     v.__dict__[key].__bases__ = tuple(bases)
                     logging.debug(
-                        "In module {}, the base class of {} is replaced by {}".format(
-                            k, v.__dict__[key], new_obj
-                        )
+                        "In module {}, the base class of {} is replaced by {}".format(k, v.__dict__[key], new_obj)
                     )
         return new_obj
 

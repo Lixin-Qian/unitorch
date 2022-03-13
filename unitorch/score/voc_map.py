@@ -3,7 +3,7 @@ from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 
-def voc_ap(
+def _voc_ap(
     rec,
     prec,
     use_07_metric=False,
@@ -48,18 +48,20 @@ def voc_ap_score(
     class_id: int = None,
     threshold: float = 0.5,
 ):
+    """
+    Args:
+        p_bboxes: a list of predict bboxes
+        p_scores: a list of predict score for bbox
+        p_classes: a list of predict class id for bbox
+        gt_bboxes: a list of ground truth bboxes
+        gt_classes: a list of true class id for each true bbox
+        class_id: the class id to compute ap score
+        threshold: the threshold to ap score
+    """
     if class_id is not None:
-        gt_bboxes = [
-            gt_bbox[gt_class == class_id]
-            for gt_class, gt_bbox in zip(gt_classes, gt_bboxes)
-        ]
-        p_bboxes = [
-            p_bbox[p_class == class_id] for p_class, p_bbox in zip(p_classes, p_bboxes)
-        ]
-        p_scores = [
-            p_score[p_class == class_id]
-            for p_class, p_score in zip(p_classes, p_scores)
-        ]
+        gt_bboxes = [gt_bbox[gt_class == class_id] for gt_class, gt_bbox in zip(gt_classes, gt_bboxes)]
+        p_bboxes = [p_bbox[p_class == class_id] for p_class, p_bbox in zip(p_classes, p_bboxes)]
+        p_scores = [p_score[p_class == class_id] for p_class, p_score in zip(p_classes, p_scores)]
         p_indexes = [np.array([i] * len(p_bboxes[i])) for i in range(len(p_bboxes))]
 
     p_bboxes, p_scores, p_indexes = (
@@ -88,8 +90,7 @@ def voc_ap_score(
             inters = iw * ih
             uni = (
                 (p_bbox[2] - p_bbox[0] + 1.0) * (p_bbox[3] - p_bbox[1] + 1.0)
-                + (gt_bbox[:, 2] - gt_bbox[:, 0] + 1.0)
-                * (gt_bbox[:, 3] - gt_bbox[:, 1] + 1.0)
+                + (gt_bbox[:, 2] - gt_bbox[:, 0] + 1.0) * (gt_bbox[:, 3] - gt_bbox[:, 1] + 1.0)
                 - inters
             )
             overlaps = inters / uni
@@ -107,7 +108,7 @@ def voc_ap_score(
     tp = np.cumsum(tp, axis=0)
     rec = tp / float(sum([len(gt) for gt in gt_bboxes]))
     prec = tp / np.maximum(tp + fp, np.finfo(np.float).eps)
-    ap = voc_ap(rec, prec)
+    ap = _voc_ap(rec, prec)
     return ap
 
 
@@ -118,6 +119,16 @@ def voc_map_score(
     gt_bboxes: List[np.ndarray],
     gt_classes: List[np.ndarray],
 ):
+    """
+    Args:
+        p_bboxes: a list of predict bboxes
+        p_scores: a list of predict score for bbox
+        p_classes: a list of predict class id for bbox
+        gt_bboxes: a list of ground truth bboxes
+        gt_classes: a list of true class id for each true bbox
+    Returns:
+        a avg ap score of all classes in ground truth
+    """
     classes = set(list(np.concatenate(gt_classes)))
     ap_scores = dict()
     for thres in range(50, 100, 5):

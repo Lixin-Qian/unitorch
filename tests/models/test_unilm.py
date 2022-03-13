@@ -4,8 +4,9 @@
 import unitorch
 import torch
 from absl.testing import absltest, parameterized
-from unitorch import set_seed, hf_cached_path
+from unitorch import set_seed
 from unitorch.models.unilm import UnilmForGeneration, UnilmProcessor
+from unitorch.cli import cached_path
 from unitorch.cli import CoreConfigureParser
 from unitorch.cli.models.unilm.modeling import (
     UnilmForGeneration as CLI_UnilmForGeneration,
@@ -17,19 +18,13 @@ import pkg_resources
 class UnilmTest(parameterized.TestCase):
     def setUp(self):
         set_seed(42)
-        config_path = pkg_resources.resource_filename(
-            "unitorch", "examples/configs/core/generation/unilm.ini"
-        )
+        config_path = pkg_resources.resource_filename("unitorch", "examples/configs/core/generation/unilm.ini")
         self.config = CoreConfigureParser(config_path)
-        self.config_path = hf_cached_path(
+        self.config_path = cached_path(
             "https://huggingface.co/fuliucansheng/unilm/resolve/main/unilm-base-uncased-config.json"
         )
-        self.vocab_path = hf_cached_path(
-            "https://unilm.blob.core.windows.net/ckpt/unilm1.2-base-uncased-vocab.txt"
-        )
-        self.weight_path = hf_cached_path(
-            "https://unilm.blob.core.windows.net/ckpt/unilm1.2-base-uncased.bin"
-        )
+        self.vocab_path = cached_path("https://unilm.blob.core.windows.net/ckpt/unilm1.2-base-uncased-vocab.txt")
+        self.weight_path = cached_path("https://unilm.blob.core.windows.net/ckpt/unilm1.2-base-uncased.bin")
 
     @parameterized.named_parameters(
         {

@@ -18,13 +18,22 @@ from unitorch.models import HuggingfaceGenerationProcessor
 class MASSProcessor(HuggingfaceGenerationProcessor):
     def __init__(
         self,
-        vocab_path,
+        vocab_path: str,
         max_seq_length: Optional[int] = 128,
         max_gen_seq_length: Optional[int] = 30,
-        do_lower_case=True,
-        do_basic_tokenize=True,
-        special_tokens_ids: Dict = dict(),
+        do_lower_case: Optional[bool] = True,
+        do_basic_tokenize: Optional[bool] = True,
+        special_tokens_ids: Optional[Dict] = dict(),
     ):
+        """
+        Args:
+            vocab_path: vocab file path in mass tokenizer
+            max_seq_length: max sequence length encode text
+            max_gen_seq_length: max sequence length decode text
+            do_lower_case: if do lower case to input text
+            do_basic_tokenize: if do basic tokenize to input text
+            special_tokens_ids: special tokens dict in mass tokenizer
+        """
         tokenizer = get_bert_tokenizer(
             vocab_path,
             do_lower_case=do_lower_case,

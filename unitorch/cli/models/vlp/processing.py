@@ -5,8 +5,8 @@ import os
 import torch
 from PIL import Image
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
-from unitorch import hf_cached_path
 from unitorch.models.vlp import VLPProcessor as _VLPProcessor
+from unitorch.cli import cached_path
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
@@ -62,7 +62,7 @@ class VLPProcessor(_VLPProcessor):
             if vocab_name_or_path in pretrained_vlp_infos
             else vocab_name_or_path
         )
-        vocab_path = hf_cached_path(vocab_path)
+        vocab_path = cached_path(vocab_path)
         return {
             "vocab_path": vocab_path,
         }

@@ -3,13 +3,13 @@
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from PIL import Image
-from unitorch import hf_cached_path
 from unitorch.models.clip import CLIPProcessor as _CLIPProcessor
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
     register_process,
 )
+from unitorch.cli import cached_path
 from unitorch.cli.models import (
     BaseInputs,
     BaseOutputs,
@@ -48,7 +48,7 @@ class CLIPProcessor(_CLIPProcessor):
             if vocab_name_or_path in pretrained_clip_infos
             else vocab_name_or_path
         )
-        vocab_path = hf_cached_path(vocab_path)
+        vocab_path = cached_path(vocab_path)
 
         merge_name_or_path = config.getoption("merge_path", pretrained_name)
         merge_path = (
@@ -56,18 +56,16 @@ class CLIPProcessor(_CLIPProcessor):
             if merge_name_or_path in pretrained_clip_infos
             else merge_name_or_path
         )
-        merge_path = hf_cached_path(merge_path)
+        merge_path = cached_path(merge_path)
 
-        vision_config_name_or_path = config.getoption(
-            "vision_config_path", pretrained_name
-        )
+        vision_config_name_or_path = config.getoption("vision_config_path", pretrained_name)
         vision_config_path = (
             pretrained_clip_infos[vision_config_name_or_path]["vision_config"]
             if vision_config_name_or_path in pretrained_clip_infos
             else vision_config_name_or_path
         )
 
-        vision_config_path = hf_cached_path(vision_config_path)
+        vision_config_path = cached_path(vision_config_path)
 
         return {
             "vocab_path": vocab_path,

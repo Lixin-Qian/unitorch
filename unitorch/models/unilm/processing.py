@@ -25,12 +25,23 @@ class UnilmProcessor(HuggingfaceGenerationProcessor):
         vocab_path,
         max_seq_length: Optional[int] = 128,
         max_gen_seq_length: Optional[int] = 30,
-        do_lower_case=True,
-        do_basic_tokenize=True,
-        special_tokens_ids: Dict = dict(),
-        source_type_id: int = 0,
-        target_type_id: int = 1,
+        do_lower_case: Optional[bool] = True,
+        do_basic_tokenize: Optional[bool] = True,
+        special_tokens_ids: Optional[Dict] = dict(),
+        source_type_id: Optional[int] = 0,
+        target_type_id: Optional[int] = 1,
     ):
+        """
+        Args:
+            vocab_path: vocab file path in unilm tokenizer
+            max_seq_length: max sequence length encode text
+            max_gen_seq_length: max sequence length decode text
+            do_lower_case: if do lower case to input text
+            do_basic_tokenize: if do basic tokenize to input text
+            special_tokens_ids: special tokens dict in mass tokenizer
+            source_type_id: token type id to encode text
+            target_type_id: token type id to decode text
+        """
         tokenizer = get_bert_tokenizer(
             vocab_path,
             do_lower_case=do_lower_case,
@@ -56,6 +67,13 @@ class UnilmProcessor(HuggingfaceGenerationProcessor):
         max_seq_length: Optional[int] = None,
         max_gen_seq_length: Optional[int] = None,
     ):
+        """
+        Args:
+            text: encode text
+            text_pair: decode text
+            max_seq_length: max sequence length to encode text
+            max_gen_seq_length: max sequence length to decode text
+        """
         max_seq_length = pop_first_non_none_value(
             max_seq_length,
             self.max_seq_length,
@@ -69,18 +87,12 @@ class UnilmProcessor(HuggingfaceGenerationProcessor):
         tokens_a = self.tokenizer.tokenize(str(text))
         tokens_b = self.tokenizer.tokenize(str(text_pair))
         _truncate_seq_pair(tokens_a, tokens_b, max_seq_length - 3)
-        tokens = (
-            [self.bos_token] + tokens_a + [self.eos_token] + tokens_b + [self.eos_token]
-        )
+        tokens = [self.bos_token] + tokens_a + [self.eos_token] + tokens_b + [self.eos_token]
 
         tokens_b = tokens_b + [self.eos_token]
 
-        tokens_t = tokens_b[:max_gen_seq_length] + [self.pad_token] * (
-            max_gen_seq_length - len(tokens_b)
-        )
-        tokens_mask_t = [1] * len(tokens_b[:max_gen_seq_length]) + [0] * (
-            max_gen_seq_length - len(tokens_b)
-        )
+        tokens_t = tokens_b[:max_gen_seq_length] + [self.pad_token] * (max_gen_seq_length - len(tokens_b))
+        tokens_mask_t = [1] * len(tokens_b[:max_gen_seq_length]) + [0] * (max_gen_seq_length - len(tokens_b))
         tokens_ids_t = self.tokenizer.convert_tokens_to_ids(tokens_t)
         tokens_ids = self.tokenizer.convert_tokens_to_ids(tokens)
 
@@ -108,9 +120,7 @@ class UnilmProcessor(HuggingfaceGenerationProcessor):
             range(len(tokens_a) + 2, len(tokens_a) + 2 + max_gen_seq_length)
         )
 
-        tokens_ids += self.tokenizer.convert_tokens_to_ids(
-            [self.mask_token] * max_gen_seq_length
-        )
+        tokens_ids += self.tokenizer.convert_tokens_to_ids([self.mask_token] * max_gen_seq_length)
         segment_ids += [self.target_type_id] * max_gen_seq_length
         tokens_ids_t = [0] * max_seq_length + tokens_ids_t
         tokens_mask_t = [0] * max_seq_length + tokens_mask_t
@@ -118,9 +128,7 @@ class UnilmProcessor(HuggingfaceGenerationProcessor):
         tokens_mask[mask_st:mask_end, second_st:second_end].copy_(
             self._tril_matrix[: mask_end - mask_st, : second_end - second_st]
         )
-        tokens_mask[mask_st:mask_end, mask_st:mask_end].copy_(
-            torch.eye(mask_end - mask_st)
-        )
+        tokens_mask[mask_st:mask_end, mask_st:mask_end].copy_(torch.eye(mask_end - mask_st))
 
         return GenericOutputs(
             tokens_ids=torch.tensor(tokens_ids, dtype=torch.long),

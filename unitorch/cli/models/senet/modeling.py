@@ -6,8 +6,8 @@ import torch
 import logging
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from torch.cuda.amp import autocast
-from unitorch import hf_cached_path
 from unitorch.models.senet import SeResNet
+from unitorch.cli import cached_path
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
@@ -36,9 +36,7 @@ class SeNetForImageClassification(SeResNet):
         if freeze_base_model:
             print("freeze base model of ", arch)
             for n, p in self.named_parameters():
-                if n in ["model.fc.weight", "model.fc.bias"] or (
-                    len(n.split(".")) > 3 and n.split(".")[3] == "se"
-                ):
+                if n in ["model.fc.weight", "model.fc.bias"] or (len(n.split(".")) > 3 and n.split(".")[3] == "se"):
                     p.requires_grad = True
                 else:
                     p.requires_grad = False
@@ -66,16 +64,11 @@ class SeNetForImageClassification(SeResNet):
         return inst
 
     def from_pretrained(self, pretrain_weight_path):
-        if not (
-            pretrain_weight_path in pretrained_senet_infos
-            or os.path.exists(pretrain_weight_path)
-        ):
+        if not (pretrain_weight_path in pretrained_senet_infos or os.path.exists(pretrain_weight_path)):
             return
 
         state_dict = (
-            load_state_dict_from_url(
-                pretrained_senet_infos[pretrain_weight_path], progress=self.progress
-            )
+            load_state_dict_from_url(pretrained_senet_infos[pretrain_weight_path], progress=self.progress)
             if pretrain_weight_path in pretrained_senet_infos
             else torch.load(pretrain_weight_path, map_location="cpu")
         )
@@ -100,14 +93,10 @@ class SeNetForImageClassification(SeResNet):
 
         _self_state_dict = self.state_dict()
         state_dict = {
-            k: v
-            for k, v in state_dict.items()
-            if k in _self_state_dict and v.shape == _self_state_dict[k].shape
+            k: v for k, v in state_dict.items() if k in _self_state_dict and v.shape == _self_state_dict[k].shape
         }
         self.load_state_dict(state_dict, False)
-        logging.info(
-            f"{type(self).__name__} model load weight from pretrain {pretrain_weight_path}"
-        )
+        logging.info(f"{type(self).__name__} model load weight from pretrain {pretrain_weight_path}")
 
     @autocast()
     def forward(

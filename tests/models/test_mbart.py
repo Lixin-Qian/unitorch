@@ -4,8 +4,9 @@
 import unitorch
 import torch
 from absl.testing import absltest, parameterized
-from unitorch import set_seed, hf_cached_path
+from unitorch import set_seed
 from unitorch.models.mbart import MBartForGeneration, MBartProcessor
+from unitorch.cli import cached_path
 from unitorch.cli import CoreConfigureParser
 from unitorch.cli.models.mbart.modeling import (
     MBartForGeneration as CLI_MBartForGeneration,
@@ -17,17 +18,13 @@ import pkg_resources
 class MBartTest(parameterized.TestCase):
     def setUp(self):
         set_seed(42)
-        config_path = pkg_resources.resource_filename(
-            "unitorch", "examples/configs/core/generation/mbart.ini"
-        )
+        config_path = pkg_resources.resource_filename("unitorch", "examples/configs/core/generation/mbart.ini")
         self.config = CoreConfigureParser(config_path)
-        self.config_path = hf_cached_path(
-            "https://huggingface.co/facebook/mbart-large-cc25/resolve/main/config.json"
-        )
-        self.vocab_path = hf_cached_path(
+        self.config_path = cached_path("https://huggingface.co/facebook/mbart-large-cc25/resolve/main/config.json")
+        self.vocab_path = cached_path(
             "https://huggingface.co/facebook/mbart-large-cc25/resolve/main/sentence.bpe.model"
         )
-        self.weight_path = hf_cached_path(
+        self.weight_path = cached_path(
             "https://huggingface.co/facebook/mbart-large-cc25/resolve/main/pytorch_model.bin"
         )
 

@@ -3,15 +3,15 @@
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from torch.cuda.amp import autocast
-from unitorch import hf_cached_path
 from unitorch.models.detectron2 import GeneralizedRCNN as _GeneralizedRCNN
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
     register_model,
 )
+from unitorch.cli import cached_path
 from unitorch.cli.models import detection_model_decorator, DetectionOutputs, LossOutputs
-from unitorch.cli.models.detectron2 import pretrained_generalized_rcnn_infos
+from unitorch.cli.models.detectron2 import pretrained_detectron2_infos
 
 
 @register_model("core/model/detection/generalized_rcnn", detection_model_decorator)
@@ -26,24 +26,21 @@ class GeneralizedRCNN(_GeneralizedRCNN):
         pretrained_name = config.getoption("pretrained_name", "default-rcnn")
         config_name_or_path = config.getoption("config_name_or_path", pretrained_name)
         config_path = (
-            pretrained_generalized_rcnn_infos[config_name_or_path]["config"]
-            if config_name_or_path in pretrained_generalized_rcnn_infos
-            and "config" in pretrained_generalized_rcnn_infos[config_name_or_path]
+            pretrained_detectron2_infos[config_name_or_path]["config"]
+            if config_name_or_path in pretrained_detectron2_infos
+            and "config" in pretrained_detectron2_infos[config_name_or_path]
             else config_name_or_path
         )
 
-        config_path = hf_cached_path(config_path)
+        config_path = cached_path(config_path)
 
         inst = cls(config_path)
         if pretrained_name is not None:
-            pretrained_name_or_path = config.getoption(
-                "pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
             weight_path = (
-                pretrained_generalized_rcnn_infos[pretrained_name_or_path]["weight"]
-                if pretrained_name_or_path in pretrained_generalized_rcnn_infos
-                and "weight"
-                in pretrained_generalized_rcnn_infos[pretrained_name_or_path]
+                pretrained_detectron2_infos[pretrained_name_or_path]["weight"]
+                if pretrained_name_or_path in pretrained_detectron2_infos
+                and "weight" in pretrained_detectron2_infos[pretrained_name_or_path]
                 else pretrained_name_or_path
             )
             inst.from_pretrained(weight_path)

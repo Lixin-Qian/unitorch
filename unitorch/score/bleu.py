@@ -5,10 +5,10 @@ import torch
 import collections
 import math
 from unitorch.score import (
-    convert_tensor_to_2D_strings,
-    convert_tensor_to_3D_strings,
-    remove_2D_strings_ignore_tokens,
-    remove_3D_strings_ignore_tokens,
+    _convert_tensor_to_2D_strings,
+    _convert_tensor_to_3D_strings,
+    _remove_2D_strings_ignore_tokens,
+    _remove_3D_strings_ignore_tokens,
 )
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
@@ -31,7 +31,7 @@ def _get_ngrams(segment, max_order):
     return ngram_counts
 
 
-def compute_bleu(reference_corpus, translation_corpus, max_order=4, smooth=False):
+def _compute_bleu(reference_corpus, translation_corpus, max_order=4, smooth=False):
     """Computes BLEU score of translated segments against one or more references.
     Args:
         reference_corpus: list of lists of references for each translation. Each
@@ -67,14 +67,10 @@ def compute_bleu(reference_corpus, translation_corpus, max_order=4, smooth=False
     precisions = [0] * max_order
     for i in range(0, max_order):
         if smooth:
-            precisions[i] = (matches_by_order[i] + 1.0) / (
-                possible_matches_by_order[i] + 1.0
-            )
+            precisions[i] = (matches_by_order[i] + 1.0) / (possible_matches_by_order[i] + 1.0)
         else:
             if possible_matches_by_order[i] > 0:
-                precisions[i] = (
-                    float(matches_by_order[i]) / possible_matches_by_order[i]
-                )
+                precisions[i] = float(matches_by_order[i]) / possible_matches_by_order[i]
             else:
                 precisions[i] = 0.0
 
@@ -97,21 +93,27 @@ def compute_bleu(reference_corpus, translation_corpus, max_order=4, smooth=False
 
 
 def bleu_score(
-    y_true,
-    y_pred,
+    y_true: List[Union[str, int, List[Union[str, int]]]],
+    y_pred: List[Union[str, int, List[Union[str, int]]]],
     ignore_tokens: Optional[List[Union[str, int]]] = None,
 ):
+    """
+    Args:
+        y_true: list of lists of int/str tokens of ground truth.
+        y_pred: list of lists of int/str tokens of generation results.
+        ignore_tokens: the token list to filtration
+    """
     if isinstance(y_true, torch.Tensor):
         if y_true.dim() == 2:
             y_true = y_true.unsqueeze(1)
-        y_true = convert_tensor_to_3D_strings(y_true)
+        y_true = _convert_tensor_to_3D_strings(y_true)
 
     if isinstance(y_pred, torch.Tensor) and y_pred.dim() == 2:
-        y_pred = convert_tensor_to_2D_strings(y_pred)
+        y_pred = _convert_tensor_to_2D_strings(y_pred)
 
     if ignore_tokens is not None:
         ignore_tokens = [str(t) for t in ignore_tokens]
 
-    y_true = remove_3D_strings_ignore_tokens(y_true, ignore_tokens=ignore_tokens)
-    y_pred = remove_2D_strings_ignore_tokens(y_pred, ignore_tokens=ignore_tokens)
-    return compute_bleu(y_true, y_pred)[0]
+    y_true = _remove_3D_strings_ignore_tokens(y_true, ignore_tokens=ignore_tokens)
+    y_pred = _remove_2D_strings_ignore_tokens(y_pred, ignore_tokens=ignore_tokens)
+    return _compute_bleu(y_true, y_pred)[0]

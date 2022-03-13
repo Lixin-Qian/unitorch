@@ -29,6 +29,11 @@ class DetrForDetection(GenericModel):
         num_class: Optional[int] = None,
     ):
         super().__init__()
+        """
+        Args:
+            config_path: config file path to detr model
+            num_class: num class to classification
+        """
         config = DetrConfig.from_json_file(config_path)
 
         self.model = DetrModel(config)
@@ -72,20 +77,24 @@ class DetrForDetection(GenericModel):
 
     @property
     def dtype(self):
+        """
+        `torch.dtype`: which dtype the parameters are (assuming that all the parameters are the same dtype).
+        """
+
         return next(self.parameters()).dtype
 
     @property
     def device(self):
+        """
+        `torch.device`: The device on which the module is (assuming that all the module parameters are on the same device).
+        """
         return next(self.parameters()).device
 
     def _set_aux_loss(self, outputs_class, outputs_coord):
         # this is a workaround to make torchscript happy, as torchscript
         # doesn't support dictionary with non-homogeneous values, such
         # as a dict having both a Tensor and a list.
-        return [
-            {"logits": a, "pred_boxes": b}
-            for a, b in zip(outputs_class[:-1], outputs_coord[:-1])
-        ]
+        return [{"logits": a, "pred_boxes": b} for a, b in zip(outputs_class[:-1], outputs_coord[:-1])]
 
     def forward(
         self,
@@ -93,11 +102,15 @@ class DetrForDetection(GenericModel):
         bboxes: Union[List[torch.Tensor], torch.Tensor],
         classes: Union[List[torch.Tensor], torch.Tensor],
     ):
+        """
+        Args:
+            images: list of image tensor
+            bboxes: list of boxes tensor
+            classes: list of classes tensor
+        """
         if isinstance(images, torch.Tensor):
             assert images.dim() == 4
-            _images = ImageList(
-                images, [(images.size(-2), images.size(-1))] * images.size(0)
-            )
+            _images = ImageList(images, [(images.size(-2), images.size(-1))] * images.size(0))
         else:
             _images = ImageList.from_tensors(images)
 
@@ -121,24 +134,22 @@ class DetrForDetection(GenericModel):
             outputs_loss["auxiliary_outputs"] = auxiliary_outputs
         labels = [{"class_labels": c, "boxes": b} for b, c in zip(bboxes, classes)]
         loss_dict = self.criterion(outputs_loss, labels)
-        loss = sum(
-            loss_dict[k] * self.weight_dict[k]
-            for k in loss_dict.keys()
-            if k in self.weight_dict
-        )
+        loss = sum(loss_dict[k] * self.weight_dict[k] for k in loss_dict.keys() if k in self.weight_dict)
         return loss
 
     @torch.no_grad()
     def detect(
         self,
         images: Union[List[torch.Tensor], torch.Tensor],
-        norm_bboxes: bool = False,
+        norm_bboxes: Optional[bool] = False,
     ):
+        """
+        Args:
+            images: list of image tensor
+        """
         if isinstance(images, torch.Tensor):
             assert images.dim() == 4
-            _images = ImageList(
-                images, [(images.size(-2), images.size(-1))] * images.size(0)
-            )
+            _images = ImageList(images, [(images.size(-2), images.size(-1))] * images.size(0))
         else:
             _images = ImageList.from_tensors(images)
 
@@ -155,10 +166,7 @@ class DetrForDetection(GenericModel):
 
         if not norm_bboxes:
             sizes = _images.image_sizes
-            bboxes = [
-                b * torch.tensor([s[1], s[0], s[1], s[0]]).to(b)
-                for b, s in zip(pred_boxes, sizes)
-            ]
+            bboxes = [b * torch.tensor([s[1], s[0], s[1], s[0]]).to(b) for b, s in zip(pred_boxes, sizes)]
         else:
             bboxes = pred_boxes
 
@@ -190,8 +198,14 @@ class DetrForSegmentation(GenericModel):
         self,
         config_path: str,
         num_class: Optional[int] = None,
-        enable_bbox_loss: bool = False,
+        enable_bbox_loss: Optional[bool] = False,
     ):
+        """
+        Args:
+            config_path: config file path to detr model
+            num_class: num class to classification
+            enable_bbox_loss: if enable bbox loss for segmentation
+        """
         super().__init__()
         config = DetrConfig.from_json_file(config_path)
 
@@ -212,9 +226,7 @@ class DetrForSegmentation(GenericModel):
 
         # segmentation head
         hidden_size, number_of_heads = config.d_model, config.encoder_attention_heads
-        intermediate_channel_sizes = (
-            self.model.backbone.conv_encoder.intermediate_channel_sizes
-        )
+        intermediate_channel_sizes = self.model.backbone.conv_encoder.intermediate_channel_sizes
 
         self.mask_head = DetrMaskHeadSmallConv(
             hidden_size + number_of_heads,
@@ -266,20 +278,23 @@ class DetrForSegmentation(GenericModel):
 
     @property
     def dtype(self):
+        """
+        `torch.dtype`: which dtype the parameters are (assuming that all the parameters are the same dtype).
+        """
         return next(self.parameters()).dtype
 
     @property
     def device(self):
+        """
+        `torch.device`: The device on which the module is (assuming that all the module parameters are on the same device).
+        """
         return next(self.parameters()).device
 
     def _set_aux_loss(self, outputs_class, outputs_coord):
         # this is a workaround to make torchscript happy, as torchscript
         # doesn't support dictionary with non-homogeneous values, such
         # as a dict having both a Tensor and a list.
-        return [
-            {"logits": a, "pred_boxes": b}
-            for a, b in zip(outputs_class[:-1], outputs_coord[:-1])
-        ]
+        return [{"logits": a, "pred_boxes": b} for a, b in zip(outputs_class[:-1], outputs_coord[:-1])]
 
     def forward(
         self,
@@ -288,11 +303,16 @@ class DetrForSegmentation(GenericModel):
         bboxes: Union[List[torch.Tensor], torch.Tensor],
         classes: Union[List[torch.Tensor], torch.Tensor],
     ):
+        """
+        Args:
+            images: list of image tensor
+            masks: list of mask tensor
+            bboxes: list of boxes tensor
+            classes: list of classes tensor
+        """
         if isinstance(images, torch.Tensor):
             assert images.dim() == 4
-            _images = ImageList(
-                images, [(images.size(-2), images.size(-1))] * images.size(0)
-            )
+            _images = ImageList(images, [(images.size(-2), images.size(-1))] * images.size(0))
         else:
             _images = ImageList.from_tensors(images)
 
@@ -321,11 +341,7 @@ class DetrForSegmentation(GenericModel):
         )
 
         # Fifth, sent query embeddings + position embeddings through the decoder (which is conditioned on the encoder output)
-        query_position_embeddings = (
-            self.model.query_position_embeddings.weight.unsqueeze(0).repeat(
-                batch_size, 1, 1
-            )
-        )
+        query_position_embeddings = self.model.query_position_embeddings.weight.unsqueeze(0).repeat(batch_size, 1, 1)
         queries = torch.zeros_like(query_position_embeddings)
 
         # decoder outputs consists of (dec_features, dec_hidden, dec_attn)
@@ -347,11 +363,7 @@ class DetrForSegmentation(GenericModel):
         outputs_loss["logits"] = logits
         outputs_loss["pred_boxes"] = pred_boxes
 
-        memory = (
-            encoder_outputs[0]
-            .permute(0, 2, 1)
-            .view(batch_size, self.config.d_model, height, width)
-        )
+        memory = encoder_outputs[0].permute(0, 2, 1).view(batch_size, self.config.d_model, height, width)
         mask = flattened_mask.view(batch_size, height, width)
 
         bbox_mask = self.bbox_attention(sequence_output, memory, mask=~mask)
@@ -386,24 +398,22 @@ class DetrForSegmentation(GenericModel):
             for b, c, m in zip(bboxes, classes, masks)
         ]
         loss_dict = self.criterion(outputs_loss, labels)
-        loss = sum(
-            loss_dict[k] * self.weight_dict[k]
-            for k in loss_dict.keys()
-            if k in self.weight_dict
-        )
+        loss = sum(loss_dict[k] * self.weight_dict[k] for k in loss_dict.keys() if k in self.weight_dict)
         return loss
 
     @torch.no_grad()
     def segment(
         self,
         images: Union[List[torch.Tensor], torch.Tensor],
-        norm_bboxes: bool = False,
+        norm_bboxes: Optional[bool] = False,
     ):
+        """
+        Args:
+            images: list of image tensor
+        """
         if isinstance(images, torch.Tensor):
             assert images.dim() == 4
-            _images = ImageList(
-                images, [(images.size(-2), images.size(-1))] * images.size(0)
-            )
+            _images = ImageList(images, [(images.size(-2), images.size(-1))] * images.size(0))
         else:
             _images = ImageList.from_tensors(images)
 
@@ -432,11 +442,7 @@ class DetrForSegmentation(GenericModel):
         )
 
         # Fifth, sent query embeddings + position embeddings through the decoder (which is conditioned on the encoder output)
-        query_position_embeddings = (
-            self.model.query_position_embeddings.weight.unsqueeze(0).repeat(
-                batch_size, 1, 1
-            )
-        )
+        query_position_embeddings = self.model.query_position_embeddings.weight.unsqueeze(0).repeat(batch_size, 1, 1)
         queries = torch.zeros_like(query_position_embeddings)
 
         # decoder outputs consists of (dec_features, dec_hidden, dec_attn)
@@ -454,11 +460,7 @@ class DetrForSegmentation(GenericModel):
         logits = self.class_labels_classifier(sequence_output)
         pred_boxes = self.bbox_predictor(sequence_output).sigmoid()
 
-        memory = (
-            encoder_outputs[0]
-            .permute(0, 2, 1)
-            .view(batch_size, self.config.d_model, height, width)
-        )
+        memory = encoder_outputs[0].permute(0, 2, 1).view(batch_size, self.config.d_model, height, width)
         mask = flattened_mask.view(batch_size, height, width)
 
         bbox_mask = self.bbox_attention(sequence_output, memory, mask=~mask)
@@ -476,10 +478,7 @@ class DetrForSegmentation(GenericModel):
 
         sizes = _images.image_sizes
         if not norm_bboxes:
-            bboxes = [
-                b * torch.tensor([s[1], s[0], s[1], s[0]]).to(b)
-                for b, s in zip(pred_boxes, sizes)
-            ]
+            bboxes = [b * torch.tensor([s[1], s[0], s[1], s[0]]).to(b) for b, s in zip(pred_boxes, sizes)]
         else:
             bboxes = pred_boxes
 
@@ -493,9 +492,7 @@ class DetrForSegmentation(GenericModel):
             }
         )
         outputs["masks"] = [
-            nn.functional.interpolate(
-                mask[:, None], size=size, mode="bilinear", align_corners=False
-            )[:, 0]
+            nn.functional.interpolate(mask[:, None], size=size, mode="bilinear", align_corners=False)[:, 0]
             for mask, size in zip(pred_masks, sizes)
         ]
         return GenericOutputs(outputs)

@@ -1,20 +1,34 @@
-
-## Training / Inference Workflow
-
-> This is the training / inference workflow of general supervised task.
-
-![Overview](../sources/images/workflow.png)
-
-#### Optimization Techniques
-1. **Dataset Optimzation**
-   1. Efficient Indexing
-   2. Multi-Thread IO Reading
-2. **C / C++ Extension**
-3. **Multi Process Prefetch**
-4. **Model & Optimizer Optimization**
-   1. CUDA Kernel Optimzation
-   2. Efficient Beam Search
-   3. Efficient Optimizer
-5. **DDP Training / DeepSpeed ZERO Optimization**
-6. **DDP Evaluation**
-7. **Asynchronous Post & IO Process**
+## unitorch documents
+unitorch provides efficient implementation of popular unified NLU / NLG / CV / MM / RL models with PyTorch. It automatically optimizes training / inference speed based on pupular deep learning toolkits (transformers, fairseq, fastseq, etc) without accuracy loss.
+> Notes
+* [**scripts**](/references/scripts.md)
+* [**services**](/references/services.md)
+* [**unitorch**](/references/unitorch.md)
+* [**unitorch.datasets**](/references/unitorch.datasets.md)
+* [**unitorch.functions**](/references/unitorch.functions.md)
+* [**unitorch.loss**](/references/unitorch.loss.md)
+* [**unitorch.models**](/references/unitorch.models.md)
+* [**unitorch.models.bart**](/references/unitorch.models.bart.md)
+* [**unitorch.models.bert**](/references/unitorch.models.bert.md)
+* [**unitorch.models.clip**](/references/unitorch.models.clip.md)
+* [**unitorch.models.deberta**](/references/unitorch.models.deberta.md)
+* [**unitorch.models.detectron2**](/references/unitorch.models.detectron2.md)
+* [**unitorch.models.detr**](/references/unitorch.models.detr.md)
+* [**unitorch.models.infoxlm**](/references/unitorch.models.infoxlm.md)
+* [**unitorch.models.mass**](/references/unitorch.models.mass.md)
+* [**unitorch.models.mbart**](/references/unitorch.models.mbart.md)
+* [**unitorch.models.processing\_utils**](/references/unitorch.models.processing\_utils.md)
+* [**unitorch.models.prophetnet**](/references/unitorch.models.prophetnet.md)
+* [**unitorch.models.roberta**](/references/unitorch.models.roberta.md)
+* [**unitorch.models.senet**](/references/unitorch.models.senet.md)
+* [**unitorch.models.swin**](/references/unitorch.models.swin.md)
+* [**unitorch.models.unilm**](/references/unitorch.models.unilm.md)
+* [**unitorch.models.vit**](/references/unitorch.models.vit.md)
+* [**unitorch.models.vit\_mae**](/references/unitorch.models.vit\_mae.md)
+* [**unitorch.models.vlp**](/references/unitorch.models.vlp.md)
+* [**unitorch.models.xprophetnet**](/references/unitorch.models.xprophetnet.md)
+* [**unitorch.modules**](/references/unitorch.modules.md)
+* [**unitorch.scheduler**](/references/unitorch.scheduler.md)
+* [**unitorch.score**](/references/unitorch.score.md)
+* [**unitorch.tasks**](/references/unitorch.tasks.md)
+* [**unitorch.utils**](/references/unitorch.utils.md)

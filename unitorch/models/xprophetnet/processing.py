@@ -10,7 +10,7 @@ from transformers import XLMProphetNetTokenizer
 from unitorch.models import HuggingfaceGenerationProcessor
 
 
-def get_xprophetnet_tokenizer(
+def _get_xprophetnet_tokenizer(
     vocab_path: str,
     special_tokens_ids: Dict = dict(),
 ):
@@ -27,12 +27,19 @@ def get_xprophetnet_tokenizer(
 class XProphetNetProcessor(HuggingfaceGenerationProcessor):
     def __init__(
         self,
-        vocab_path=None,
-        special_tokens_ids=dict(),
-        max_seq_length=128,
-        max_gen_seq_length=48,
+        vocab_path: str,
+        special_tokens_ids: Optional[Dict] = dict(),
+        max_seq_length: Optional[int] = 128,
+        max_gen_seq_length: Optional[int] = 48,
     ):
-        tokenizer = get_xprophetnet_tokenizer(
+        """
+        Args:
+            vocab_path: vocab file path in xprophetnet tokenizer
+            max_seq_length: max sequence length encode text
+            max_gen_seq_length: max sequence length decode text
+            special_tokens_ids: special tokens dict in xprophetnet tokenizer
+        """
+        tokenizer = _get_xprophetnet_tokenizer(
             vocab_path,
             special_tokens_ids=special_tokens_ids,
         )

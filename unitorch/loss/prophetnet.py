@@ -7,10 +7,18 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 
 class ProphetnetLoss(nn.Module):
+    """
+    Creates a criterion for prophetnet
+    """
+
     def __init__(
         self,
         reduction: str = "mean",
     ):
+        """
+        Args:
+            reduction (string, optional): specifies the reduction to apply to the output.
+        """
         super().__init__()
         self.reduction = reduction
 
@@ -21,6 +29,13 @@ class ProphetnetLoss(nn.Module):
         masks: Optional[torch.Tensor] = None,
         sample_weight: Optional[torch.Tensor] = None,
     ):
+        """
+        Args:
+            input: output tensor from model
+            target: target tensor for model
+            masks: mask matrix for target
+            sample_weight: weight for each sample in a batch
+        """
         assert input.dim() == 4 and target.dim() == 2
 
         batch_size, ngram, seq_len, num_class = input.size()

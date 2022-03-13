@@ -21,6 +21,12 @@ class DebertaForClassification(GenericModel):
         num_class: Optional[int] = 1,
         gradient_checkpointing: Optional[bool] = False,
     ):
+        """
+        Args:
+            config_path: config file path to deberta model
+            num_class: num class to classification
+            gradient_checkpointing: if to enable gradient_checkpointing
+        """
         super().__init__()
         self.config = DebertaConfig.from_json_file(config_path)
         self.config.gradient_checkpointing = gradient_checkpointing
@@ -37,6 +43,13 @@ class DebertaForClassification(GenericModel):
         seg_ids: Optional[torch.Tensor] = None,
         pos_ids: Optional[torch.Tensor] = None,
     ):
+        """
+        Args:
+            tokens_ids: tokens of text
+            attn_mask: attention mask of tokens
+            seg_ids: token type ids
+            pos_ids: position ids
+        """
         outputs = self.deberta(
             tokens_ids,
             attention_mask=attn_mask,
@@ -56,15 +69,18 @@ class DebertaForMaskLM(GenericModel):
         config_path: str,
         gradient_checkpointing: Optional[bool] = False,
     ):
+        """
+        Args:
+            config_path: config file path to deberta model
+            gradient_checkpointing: if to enable gradient_checkpointing
+        """
         super().__init__()
         self.config = DebertaConfig.from_json_file(config_path)
         self.config.gradient_checkpointing = gradient_checkpointing
         self.deberta = DebertaModel(self.config)
         self.cls = DebertaOnlyMLMHead(self.config)
         self.init_weights()
-        self.deberta.embeddings.word_embeddings.weight = (
-            self.cls.predictions.decoder.weight
-        )
+        self.cls.predictions.decoder.weight = self.deberta.embeddings.word_embeddings.weight
 
     def forward(
         self,
@@ -73,6 +89,13 @@ class DebertaForMaskLM(GenericModel):
         seg_ids: Optional[torch.Tensor] = None,
         pos_ids: Optional[torch.Tensor] = None,
     ):
+        """
+        Args:
+            tokens_ids: tokens of text
+            attn_mask: attention mask of tokens
+            seg_ids: token type ids
+            pos_ids: position ids
+        """
         outputs = self.deberta(
             tokens_ids,
             attention_mask=attn_mask,

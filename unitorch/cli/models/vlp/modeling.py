@@ -7,11 +7,11 @@ import logging
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from torch.cuda.amp import autocast
 from transformers.file_utils import is_remote_url
-from unitorch import hf_cached_path
 from unitorch.models.vlp import (
     VLPForGeneration as _VLPForGeneration,
     VLPForClassification as _VLPForClassification,
 )
+from unitorch.cli import cached_path
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
@@ -53,18 +53,16 @@ class VLPForGeneration(_VLPForGeneration):
             else config_name_or_path
         )
 
-        vlp_config_path = hf_cached_path(config_path)
+        vlp_config_path = cached_path(config_path)
 
-        config_name_or_path = config.getoption(
-            "detectron2_config_path", pretrained_name
-        )
+        config_name_or_path = config.getoption("detectron2_config_path", pretrained_name)
         config_path = (
             pretrained_vlp_infos[config_name_or_path]["detectron2_config"]
             if config_name_or_path in pretrained_vlp_infos
             else config_name_or_path
         )
 
-        detectron2_config_path = hf_cached_path(config_path)
+        detectron2_config_path = cached_path(config_path)
 
         freeze_vision_model = config.getoption("freeze_vision_model", True)
         max_num_bbox = config.getoption("max_num_bbox", 100)
@@ -76,9 +74,7 @@ class VLPForGeneration(_VLPForGeneration):
             max_num_bbox=max_num_bbox,
         )
         if pretrained_name is not None:
-            pretrained_name_or_path = config.getoption(
-                "detectron2_pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("detectron2_pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_vlp_infos[pretrained_name_or_path]["detectron2_weight"]
                 if pretrained_name_or_path in pretrained_vlp_infos
@@ -88,9 +84,7 @@ class VLPForGeneration(_VLPForGeneration):
 
             inst.vision_model.from_pretrained(weight_path)
 
-            pretrained_name_or_path = config.getoption(
-                "pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_vlp_infos[pretrained_name_or_path]["weight"]
                 if pretrained_name_or_path in pretrained_vlp_infos
@@ -103,12 +97,9 @@ class VLPForGeneration(_VLPForGeneration):
         return inst
 
     def from_pretrained(self, pretrained_weight_path):
-        if not (
-            is_remote_url(pretrained_weight_path)
-            or os.path.exists(pretrained_weight_path)
-        ):
+        if not (is_remote_url(pretrained_weight_path) or os.path.exists(pretrained_weight_path)):
             return
-        weight_path = hf_cached_path(pretrained_weight_path)
+        weight_path = cached_path(pretrained_weight_path)
         state_dict = torch.load(weight_path, map_location="cpu")
 
         old_keys = []
@@ -127,15 +118,11 @@ class VLPForGeneration(_VLPForGeneration):
 
         _self_state_dict = self.state_dict()
         state_dict = {
-            k: v
-            for k, v in state_dict.items()
-            if k in _self_state_dict and v.shape == _self_state_dict[k].shape
+            k: v for k, v in state_dict.items() if k in _self_state_dict and v.shape == _self_state_dict[k].shape
         }
 
         self.load_state_dict(state_dict, False)
-        logging.info(
-            f"{type(self).__name__} model load weight from pretrain {weight_path}"
-        )
+        logging.info(f"{type(self).__name__} model load weight from pretrain {weight_path}")
 
     @autocast()
     def forward(
@@ -256,18 +243,16 @@ class VLPForCaption(_VLPForGeneration):
             else config_name_or_path
         )
 
-        vlp_config_path = hf_cached_path(config_path)
+        vlp_config_path = cached_path(config_path)
 
-        config_name_or_path = config.getoption(
-            "detectron2_config_path", pretrained_name
-        )
+        config_name_or_path = config.getoption("detectron2_config_path", pretrained_name)
         config_path = (
             pretrained_vlp_infos[config_name_or_path]["detectron2_config"]
             if config_name_or_path in pretrained_vlp_infos
             else config_name_or_path
         )
 
-        detectron2_config_path = hf_cached_path(config_path)
+        detectron2_config_path = cached_path(config_path)
 
         freeze_vision_model = config.getoption("freeze_vision_model", True)
         max_num_bbox = config.getoption("max_num_bbox", 100)
@@ -279,9 +264,7 @@ class VLPForCaption(_VLPForGeneration):
             max_num_bbox=max_num_bbox,
         )
         if pretrained_name is not None:
-            pretrained_name_or_path = config.getoption(
-                "detectron2_pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("detectron2_pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_vlp_infos[pretrained_name_or_path]["detectron2_weight"]
                 if pretrained_name_or_path in pretrained_vlp_infos
@@ -291,9 +274,7 @@ class VLPForCaption(_VLPForGeneration):
 
             inst.vision_model.from_pretrained(weight_path)
 
-            pretrained_name_or_path = config.getoption(
-                "pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_vlp_infos[pretrained_name_or_path]["weight"]
                 if pretrained_name_or_path in pretrained_vlp_infos
@@ -426,18 +407,16 @@ class VLPForClassification(_VLPForClassification):
             else config_name_or_path
         )
 
-        vlp_config_path = hf_cached_path(config_path)
+        vlp_config_path = cached_path(config_path)
 
-        config_name_or_path = config.getoption(
-            "detectron2_config_path", pretrained_name
-        )
+        config_name_or_path = config.getoption("detectron2_config_path", pretrained_name)
         config_path = (
             pretrained_vlp_infos[config_name_or_path]["detectron2_config"]
             if config_name_or_path in pretrained_vlp_infos
             else config_name_or_path
         )
 
-        detectron2_config_path = hf_cached_path(config_path)
+        detectron2_config_path = cached_path(config_path)
 
         freeze_vision_model = config.getoption("freeze_vision_model", True)
         freeze_base_model = config.getoption("freeze_base_model", True)
@@ -453,9 +432,7 @@ class VLPForClassification(_VLPForClassification):
             num_class=num_class,
         )
         if pretrained_name is not None:
-            pretrained_name_or_path = config.getoption(
-                "detectron2_pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("detectron2_pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_vlp_infos[pretrained_name_or_path]["detectron2_weight"]
                 if pretrained_name_or_path in pretrained_vlp_infos
@@ -465,9 +442,7 @@ class VLPForClassification(_VLPForClassification):
 
             inst.vision_model.from_pretrained(weight_path)
 
-            pretrained_name_or_path = config.getoption(
-                "pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_vlp_infos[pretrained_name_or_path]["weight"]
                 if pretrained_name_or_path in pretrained_vlp_infos
@@ -480,12 +455,9 @@ class VLPForClassification(_VLPForClassification):
         return inst
 
     def from_pretrained(self, pretrained_weight_path):
-        if not (
-            is_remote_url(pretrained_weight_path)
-            or os.path.exists(pretrained_weight_path)
-        ):
+        if not (is_remote_url(pretrained_weight_path) or os.path.exists(pretrained_weight_path)):
             return
-        weight_path = hf_cached_path(pretrained_weight_path)
+        weight_path = cached_path(pretrained_weight_path)
         state_dict = torch.load(weight_path, map_location="cpu")
 
         old_keys = []
@@ -504,15 +476,11 @@ class VLPForClassification(_VLPForClassification):
 
         _self_state_dict = self.state_dict()
         state_dict = {
-            k: v
-            for k, v in state_dict.items()
-            if k in _self_state_dict and v.shape == _self_state_dict[k].shape
+            k: v for k, v in state_dict.items() if k in _self_state_dict and v.shape == _self_state_dict[k].shape
         }
 
         self.load_state_dict(state_dict, False)
-        logging.info(
-            f"{type(self).__name__} model load weight from pretrain {weight_path}"
-        )
+        logging.info(f"{type(self).__name__} model load weight from pretrain {weight_path}")
 
     @autocast()
     def forward(

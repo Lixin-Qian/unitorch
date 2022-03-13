@@ -11,7 +11,7 @@ pip install unitorch
 ###### *With Dataset From Huggingface Hub*
 > The [Hub Dataset](https://huggingface.co/datasets/fuliucansheng/mininlp) is configed in the ini file.
 ```bash
-unitorch-train examples/configs/core/classification/roberta.ini
+unitorch-train examples/configs/core/classification/hub/roberta.ini
 ```
 
 ###### *With Local Files*

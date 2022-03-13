@@ -6,7 +6,7 @@ import torch.nn as nn
 from transformers.generation_utils import GenerationMixin
 from transformers.modeling_outputs import Seq2SeqLMOutput
 from transformers.models.bert.modeling_bert import BertOnlyMLMHead
-from unitorch.common.prefix_model import (
+from unitorch.modules.prefix_model import (
     PrefixConfig,
     PrefixTextModel,
     _reorder_buffer,
@@ -19,6 +19,10 @@ class UnilmForGeneration(GenericModel, GenerationMixin):
     main_input_name = "input_ids"
 
     def __init__(self, config_path):
+        """
+        Args:
+            config_path: config file path to unilm model
+        """
         super().__init__()
         self.config = PrefixConfig.from_json_file(config_path)
         self.config.gradient_checkpointing = False
@@ -26,17 +30,15 @@ class UnilmForGeneration(GenericModel, GenerationMixin):
         self.cls = BertOnlyMLMHead(self.config)
         self.init_weights()
 
-        self.hist_index = (
-            int(self.config.output_hidden_states)
-            + int(self.config.output_attentions)
-            + 2
-        )
-        self.bert.embeddings.word_embeddings.weight = (
-            self.cls.predictions.decoder.weight
-        )
+        self.hist_index = int(self.config.output_hidden_states) + int(self.config.output_attentions) + 2
+        self.bert.embeddings.word_embeddings.weight = self.cls.predictions.decoder.weight
 
     @property
     def device(self) -> torch.device:
+        """
+        `torch.device`: The device on which the module is (assuming that all the module parameters are on the same
+        device).
+        """
         return next(self.parameters()).device
 
     def prepare_inputs_for_generation(
@@ -45,6 +47,9 @@ class UnilmForGeneration(GenericModel, GenerationMixin):
         past=None,
         **kwargs,
     ):
+        """
+        Implement in subclasses of [`PreTrainedModel`] for custom behavior to prepare inputs in the generate method.
+        """
         if past is None:
             active_batch_size, _ = decoder_input_ids.size()
             prefix_token, prefix_seg, prefix_pos, prefix_mask = (
@@ -60,9 +65,7 @@ class UnilmForGeneration(GenericModel, GenerationMixin):
                 prefix_mask[:, :prefix_len, :prefix_len],
                 prefix_pos[:, :prefix_len],
             )
-            token_pos = prefix_pos.repeat(1, self.num_beams).view(
-                active_batch_size, prefix_pos.size(1)
-            )
+            token_pos = prefix_pos.repeat(1, self.num_beams).view(active_batch_size, prefix_pos.size(1))
             token_pos = token_pos[:, prefix_len:]
             token_mask = (
                 prefix_mask.unsqueeze(1)
@@ -71,22 +74,10 @@ class UnilmForGeneration(GenericModel, GenerationMixin):
             )
             token_mask = token_mask[:, prefix_len:, :]
             history_states = outputs[self.hist_index]
-            decoder_mask_token = (
-                torch.ones(active_batch_size, 1).to(decoder_input_ids)
-                * self.config.mask_token_id
-            )
-            decoder_seg_ids = (
-                torch.ones(active_batch_size, 2).to(decoder_input_ids)
-                * self.config.target_type_id
-            )
+            decoder_mask_token = torch.ones(active_batch_size, 1).to(decoder_input_ids) * self.config.mask_token_id
+            decoder_seg_ids = torch.ones(active_batch_size, 2).to(decoder_input_ids) * self.config.target_type_id
         else:
-            (
-                token_pos,
-                token_mask,
-                decoder_mask_token,
-                decoder_seg_ids,
-                history_states,
-            ) = (
+            (token_pos, token_mask, decoder_mask_token, decoder_seg_ids, history_states,) = (
                 past[0],
                 past[1],
                 past[2],
@@ -168,6 +159,15 @@ class UnilmForGeneration(GenericModel, GenerationMixin):
         output_hidden_states=None,
         return_dict=None,
     ):
+        """
+        Args:
+            tokens_ids: tokens of encode text & decode
+            attn_mask: attention mask of tokens
+            seg_ids: token type ids
+            pos_ids: position ids
+            others: used in beam search
+        Returns: forward logits
+        """
         if self.training:
             outputs = self.bert(
                 tokens_ids,
@@ -223,30 +223,26 @@ class UnilmForGeneration(GenericModel, GenerationMixin):
         top_k=50,
         top_p=1.0,
     ):
+        """
+        Args:
+            tokens_ids: tokens of encode text
+        """
         self.num_beams = num_beams
         prefix_token = tokens_ids
         prefix_mask1 = tokens_ids.ne(self.config.pad_token_id).long()
         batch_size, prefix_len = prefix_token.size()
         total_seq_length = max_gen_seq_length + prefix_len + 1
         prefix_mask = prefix_mask1[:, None, :].repeat(1, total_seq_length, 1)
-        new_mask = torch.zeros(batch_size, total_seq_length, max_gen_seq_length + 1).to(
-            prefix_mask
-        )
-        tri_mask = torch.ones(batch_size, total_seq_length, max_gen_seq_length + 1).to(
-            prefix_mask
-        )
+        new_mask = torch.zeros(batch_size, total_seq_length, max_gen_seq_length + 1).to(prefix_mask)
+        tri_mask = torch.ones(batch_size, total_seq_length, max_gen_seq_length + 1).to(prefix_mask)
         new_mask[:, prefix_len:, :] = torch.tril(tri_mask[:, prefix_len:, :])
         new_mask[:, :, 0] = 0
         prefix_mask = torch.cat((prefix_mask, new_mask), dim=-1)
-        prefix_seg = torch.tensor([self.config.source_type_id] * prefix_len).to(
-            prefix_token
-        )
+        prefix_seg = torch.tensor([self.config.source_type_id] * prefix_len).to(prefix_token)
         prefix_seg = prefix_seg[None, :].repeat(batch_size, 1)
         prefix_pos0 = torch.ones(batch_size, max_gen_seq_length + 1).to(tokens_ids)
         prefix_pos0[:, 0] = 0
-        prefix_pos = torch.cat((tokens_ids, prefix_pos0.to(tokens_ids)), dim=-1).ne(
-            self.config.pad_token_id
-        )
+        prefix_pos = torch.cat((tokens_ids, prefix_pos0.to(tokens_ids)), dim=-1).ne(self.config.pad_token_id)
         prefix_pos = torch.cumsum(prefix_pos, dim=-1) - 1
 
         self.prefix_state = dict(
@@ -258,20 +254,13 @@ class UnilmForGeneration(GenericModel, GenerationMixin):
                 "prefix_pos": prefix_pos,
             }
         )
-        decoder_seg = (
-            torch.ones(batch_size * self.num_beams, 1) * self.config.target_type_id
-        ).to(prefix_token)
+        decoder_seg = (torch.ones(batch_size * self.num_beams, 1) * self.config.target_type_id).to(prefix_token)
         decoder_seg[:, 0] = self.config.source_type_id
-        decoder_mask_token = (
-            torch.ones(batch_size * self.num_beams, 1).to(prefix_token)
-            * self.config.mask_token_id
-        )
+        decoder_mask_token = torch.ones(batch_size * self.num_beams, 1).to(prefix_token) * self.config.mask_token_id
         if decoder_start_token_id is not None:
             self.config.bos_token_id = decoder_start_token_id
 
-        decoder_input_ids = (
-            torch.ones(batch_size, 1).to(prefix_token) * self.config.bos_token_id
-        )
+        decoder_input_ids = torch.ones(batch_size, 1).to(prefix_token) * self.config.bos_token_id
         outputs = super().generate(
             decoder_input_ids,
             max_length=max_gen_seq_length,
@@ -295,17 +284,13 @@ class UnilmForGeneration(GenericModel, GenerationMixin):
             output_scores=True,
         )
 
-        sequences = outputs.sequences.reshape(
-            -1, num_return_sequences, outputs.sequences.size(-1)
+        sequences = outputs.sequences.reshape(-1, num_return_sequences, outputs.sequences.size(-1))
+        outputs.sequences = torch.zeros(sequences.size(0), num_return_sequences, max_gen_seq_length).to(
+            device=sequences.device
         )
-        outputs.sequences = torch.zeros(
-            sequences.size(0), num_return_sequences, max_gen_seq_length
-        ).to(device=sequences.device)
         outputs.sequences[:, :, : sequences.size(-1)].copy_(sequences)
 
         if num_return_sequences == 1:
             outputs.sequences = outputs.sequences.reshape(-1, max_gen_seq_length)
 
-        return GenericOutputs(
-            sequences=outputs.sequences, sequences_scores=outputs.sequences_scores
-        )
+        return GenericOutputs(sequences=outputs.sequences, sequences_scores=outputs.sequences_scores)

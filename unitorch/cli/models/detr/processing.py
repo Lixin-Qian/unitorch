@@ -3,8 +3,8 @@
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from PIL import Image
-from unitorch import hf_cached_path
 from unitorch.models.detr import DetrProcessor as _DetrProcessor
+from unitorch.cli import cached_path
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
@@ -37,16 +37,14 @@ class DetrProcessor(_DetrProcessor):
     def from_core_configure(cls, config, **kwargs):
         config.set_default_section("core/process/detr")
         pretrained_name = config.getoption("pretrained_name", "default-detr")
-        vision_config_name_or_path = config.getoption(
-            "vision_config_path", pretrained_name
-        )
+        vision_config_name_or_path = config.getoption("vision_config_path", pretrained_name)
         vision_config_path = (
             pretrained_detr_infos[vision_config_name_or_path]["vision_config"]
             if vision_config_name_or_path in pretrained_detr_infos
             else vision_config_name_or_path
         )
 
-        vision_config_path = hf_cached_path(vision_config_path)
+        vision_config_path = cached_path(vision_config_path)
 
         return {
             "vision_config_path": vision_config_path,
@@ -70,38 +68,28 @@ class DetrProcessor(_DetrProcessor):
         image: Union[Image.Image, str],
         bboxes: List[List[float]],
         classes: List[int],
+        do_eval: Optional[bool] = False,
     ):
         outputs = super().processing_detection(
             image=image,
             bboxes=bboxes,
             classes=classes,
         )
+        if do_eval:
+            new_h, new_w = outputs.image.size()[1:]
+            bboxes = outputs.bboxes
+            bboxes[:, 0] = bboxes[:, 0] * new_w
+            bboxes[:, 1] = bboxes[:, 1] * new_h
+            bboxes[:, 2] = bboxes[:, 2] * new_w
+            bboxes[:, 3] = bboxes[:, 3] * new_h
+            return ListInputs(images=outputs.image), DetectionTargets(
+                bboxes=bboxes,
+                classes=outputs.classes,
+            )
+
         return ListInputs(
             images=outputs.image,
             bboxes=outputs.bboxes,
-            classes=outputs.classes,
-        )
-
-    @register_process("core/process/detr_detection_evaluation")
-    def _processing_detection_evaluation(
-        self,
-        image: Union[Image.Image, str],
-        bboxes: List[List[float]],
-        classes: List[int],
-    ):
-        outputs = super().processing_detection(
-            image=image,
-            bboxes=bboxes,
-            classes=classes,
-        )
-        new_h, new_w = outputs.image.size()[1:]
-        bboxes = outputs.bboxes
-        bboxes[:, 0] = bboxes[:, 0] * new_w
-        bboxes[:, 1] = bboxes[:, 1] * new_h
-        bboxes[:, 2] = bboxes[:, 2] * new_w
-        bboxes[:, 3] = bboxes[:, 3] * new_h
-        return ListInputs(images=outputs.image), DetectionTargets(
-            bboxes=bboxes,
             classes=outputs.classes,
         )
 
@@ -126,6 +114,7 @@ class DetrProcessor(_DetrProcessor):
         gt_image: Union[Image.Image, str],
         bboxes: List[List[float]] = None,
         classes: List[int] = None,
+        do_eval: Optional[bool] = False,
     ):
         if bboxes is not None and classes is not None:
             outputs1 = super().processing_detection(
@@ -135,42 +124,12 @@ class DetrProcessor(_DetrProcessor):
             )
             bboxes = outputs1.bboxes
             classes = outputs1.classes
-        else:
-            outputs1 = None
-
-        outputs2 = super().processing_segmentation(
-            image=image,
-            gt_image=gt_image,
-        )
-
-        return ListInputs(
-            images=outputs2.image,
-            masks=outputs2.gt_image,
-            bboxes=bboxes,
-            classes=classes,
-        )
-
-    @register_process("core/process/detr_segmentation_evaluation")
-    def _processing_segmentation_evaluation(
-        self,
-        image: Union[Image.Image, str],
-        gt_image: Union[Image.Image, str],
-        bboxes: List[List[float]] = None,
-        classes: List[int] = None,
-    ):
-        if bboxes is not None and classes is not None:
-            outputs1 = super().processing_detection(
-                image=image,
-                bboxes=bboxes,
-                classes=classes,
-            )
-            new_h, new_w = outputs1.image.size()[1:]
-            bboxes = outputs1.bboxes
-            bboxes[:, 0] = bboxes[:, 0] * new_w
-            bboxes[:, 1] = bboxes[:, 1] * new_h
-            bboxes[:, 2] = bboxes[:, 2] * new_w
-            bboxes[:, 3] = bboxes[:, 3] * new_h
-            classes = outputs1.classes
+            if do_eval:
+                new_h, new_w = outputs1.image.size()[1:]
+                bboxes[:, 0] = bboxes[:, 0] * new_w
+                bboxes[:, 1] = bboxes[:, 1] * new_h
+                bboxes[:, 2] = bboxes[:, 2] * new_w
+                bboxes[:, 3] = bboxes[:, 3] * new_h
         else:
             bboxes, classes = None, None
 
@@ -179,8 +138,16 @@ class DetrProcessor(_DetrProcessor):
             gt_image=gt_image,
         )
 
-        return ListInputs(images=outputs2.image,), SegmentationTargets(
-            targets=outputs2.gt_image,
+        if do_eval:
+            return ListInputs(images=outputs2.image,), SegmentationTargets(
+                targets=outputs2.gt_image,
+                bboxes=bboxes,
+                classes=classes,
+            )
+
+        return ListInputs(
+            images=outputs2.image,
+            masks=outputs2.gt_image,
             bboxes=bboxes,
             classes=classes,
         )

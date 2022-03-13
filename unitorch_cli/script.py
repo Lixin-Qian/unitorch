@@ -6,10 +6,9 @@ import sys
 import fire
 import importlib
 import unitorch.cli
-from unitorch import hf_cached_path
-from unitorch.scripts import registered_script
-from unitorch.cli import CoreConfigureParser
-from unitorch_cli import get_config_file, load_template
+from unitorch.cli import cached_path
+from unitorch.cli import CoreConfigureParser, registered_script
+from unitorch_cli import load_template
 
 
 @fire.decorators.SetParseFn(str)
@@ -21,22 +20,18 @@ def script(script_path_or_dir: str, **kwargs):
         sys.path.insert(0, script_path_or_dir)
         for f in os.listdir(script_path_or_dir):
             fpath = os.path.normpath(os.path.join(script_path_or_dir, f))
-            if (
-                not f.startswith("_")
-                and not f.startswith(".")
-                and (f.endswith(".py") or os.path.isdir(fpath))
-            ):
+            if not f.startswith("_") and not f.startswith(".") and (f.endswith(".py") or os.path.isdir(fpath)):
                 fname = f[:-3] if f.endswith(".py") else f
                 module = importlib.import_module(f"{fname}")
 
     elif script_path_or_dir and not script_path_or_dir.endswith(".ini"):
         load_template(script_path_or_dir)
         config_path = os.path.join(script_path_or_dir, config_file)
-        config_path = get_config_file(config_path)
+        config_path = cached_path(config_path)
         if config_path is None:
-            config_path = get_config_file(config_file)
+            config_path = cached_path(config_file)
     else:
-        config_path = get_config_file(script_path_or_dir)
+        config_path = cached_path(script_path_or_dir)
 
     params = []
     for k, v in kwargs.items():

@@ -4,8 +4,9 @@
 import unitorch
 import torch
 from absl.testing import absltest, parameterized
-from unitorch import set_seed, hf_cached_path
+from unitorch import set_seed
 from unitorch.models.bart import BartForGeneration, BartProcessor
+from unitorch.cli import cached_path
 from unitorch.cli import CoreConfigureParser
 from unitorch.cli.models.bart.modeling import BartForGeneration as CLI_BartForGeneration
 from unitorch.cli.models.bart.processing import BartProcessor as CLI_BartProcessor
@@ -15,22 +16,12 @@ import pkg_resources
 class BartTest(parameterized.TestCase):
     def setUp(self):
         set_seed(42)
-        config_path = pkg_resources.resource_filename(
-            "unitorch", "examples/configs/core/generation/bart.ini"
-        )
+        config_path = pkg_resources.resource_filename("unitorch", "examples/configs/core/generation/bart.ini")
         self.config = CoreConfigureParser(config_path)
-        self.config_path = hf_cached_path(
-            "https://huggingface.co/facebook/bart-base/resolve/main/config.json"
-        )
-        self.vocab_path = hf_cached_path(
-            "https://huggingface.co/facebook/bart-base/resolve/main/vocab.json"
-        )
-        self.merge_path = hf_cached_path(
-            "https://huggingface.co/facebook/bart-base/resolve/main/merges.txt"
-        )
-        self.weight_path = hf_cached_path(
-            "https://huggingface.co/facebook/bart-base/resolve/main/pytorch_model.bin"
-        )
+        self.config_path = cached_path("https://huggingface.co/facebook/bart-base/resolve/main/config.json")
+        self.vocab_path = cached_path("https://huggingface.co/facebook/bart-base/resolve/main/vocab.json")
+        self.merge_path = cached_path("https://huggingface.co/facebook/bart-base/resolve/main/merges.txt")
+        self.weight_path = cached_path("https://huggingface.co/facebook/bart-base/resolve/main/pytorch_model.bin")
 
     @parameterized.named_parameters(
         {

@@ -1,5 +1,5 @@
 
-## VLP Image Caption & Multi-Modal Generation
+<h2 align="Center"> <p> VLP Image Caption & Multi-Modal Generation </p> </h2>
 
 #### Train with command line
 ##### Step 1: Prepare Customize Dataset

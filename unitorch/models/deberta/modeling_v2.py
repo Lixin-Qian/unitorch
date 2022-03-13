@@ -20,6 +20,12 @@ class DebertaV2ForClassification(GenericModel):
         num_class: Optional[int] = 1,
         gradient_checkpointing: Optional[bool] = False,
     ):
+        """
+        Args:
+            config_path: config file path to deberta model
+            num_class: num class to classification
+            gradient_checkpointing: if to enable gradient_checkpointing
+        """
         super().__init__()
         self.config = DebertaV2Config.from_json_file(config_path)
         self.config.gradient_checkpointing = gradient_checkpointing
@@ -36,6 +42,13 @@ class DebertaV2ForClassification(GenericModel):
         seg_ids: Optional[torch.Tensor] = None,
         pos_ids: Optional[torch.Tensor] = None,
     ):
+        """
+        Args:
+            tokens_ids: tokens of text
+            attn_mask: attention mask of tokens
+            seg_ids: token type ids
+            pos_ids: position ids
+        """
         outputs = self.deberta(
             tokens_ids,
             attention_mask=attn_mask,

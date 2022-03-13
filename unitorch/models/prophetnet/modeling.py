@@ -6,19 +6,19 @@ import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import transformers
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from transformers import (
     ProphetNetConfig,
     ProphetNetModel,
 )
-from transformers.models.prophetnet.modeling_prophetnet import ProphetNetAttention
 from transformers.generation_utils import GenerationMixin
 from transformers.modeling_outputs import Seq2SeqLMOutput
 from unitorch.utils.decorators import replace
 
 
-@replace(ProphetNetAttention)
-class ProphetNetAttentionV2(ProphetNetAttention):
+@replace(transformers.models.prophetnet.modeling_prophetnet.ProphetNetAttention)
+class _ProphetNetAttentionV2(transformers.models.prophetnet.modeling_prophetnet.ProphetNetAttention):
     def __init__(
         self,
         config: ProphetNetConfig,
@@ -27,11 +27,7 @@ class ProphetNetAttentionV2(ProphetNetAttention):
         super().__init__(config=config, num_attn_heads=num_attn_heads)
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
-        return (
-            tensor.view(bsz, seq_len, self.num_attn_heads, self.head_dim)
-            .transpose(1, 2)
-            .contiguous()
-        )
+        return tensor.view(bsz, seq_len, self.num_attn_heads, self.head_dim).transpose(1, 2).contiguous()
 
     def forward(
         self,
@@ -67,9 +63,7 @@ class ProphetNetAttentionV2(ProphetNetAttention):
             # cross_attentions
             kv_batch_size = key_value_states.size(0)
             key_states = self._shape(self.key_proj(key_value_states), -1, kv_batch_size)
-            value_states = self._shape(
-                self.value_proj(key_value_states), -1, kv_batch_size
-            )
+            value_states = self._shape(self.value_proj(key_value_states), -1, kv_batch_size)
         else:
             # self_attention
             key_states = self._shape(self.key_proj(hidden_states), -1, batch_size)
@@ -93,12 +87,8 @@ class ProphetNetAttentionV2(ProphetNetAttention):
         if is_cross_attention and kv_batch_size != batch_size:
             attn_weights = torch.einsum(
                 "bxhtd,bhsd->bxhts",
-                query_states.view(
-                    kv_batch_size, -1, self.num_attn_heads, *query_states.size()[1:]
-                ),
-                key_states.view(
-                    kv_batch_size, self.num_attn_heads, *key_states.size()[1:]
-                ),
+                query_states.view(kv_batch_size, -1, self.num_attn_heads, *query_states.size()[1:]),
+                key_states.view(kv_batch_size, self.num_attn_heads, *key_states.size()[1:]),
             )
             attn_weights = attn_weights.reshape(-1, *attn_weights.size()[-2:])
         else:
@@ -128,12 +118,8 @@ class ProphetNetAttentionV2(ProphetNetAttention):
             # make sure that attn_weights keeps its gradient.
             # In order to do so, attn_weights have to reshaped
             # twice and have to be reused in the following
-            attn_weights_reshaped = attn_weights.view(
-                batch_size, self.num_attn_heads, tgt_len, src_len
-            )
-            attn_weights = attn_weights_reshaped.view(
-                batch_size * self.num_attn_heads, tgt_len, src_len
-            )
+            attn_weights_reshaped = attn_weights.view(batch_size, self.num_attn_heads, tgt_len, src_len)
+            attn_weights = attn_weights_reshaped.view(batch_size * self.num_attn_heads, tgt_len, src_len)
         else:
             attn_weights_reshaped = None
 
@@ -145,14 +131,10 @@ class ProphetNetAttentionV2(ProphetNetAttention):
             attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights.view(
                 batch_size, self.num_attn_heads, tgt_len, src_len
             )
-            attn_weights = attn_weights.view(
-                batch_size * self.num_attn_heads, tgt_len, src_len
-            )
+            attn_weights = attn_weights.view(batch_size * self.num_attn_heads, tgt_len, src_len)
 
             # apply head_mask also on attn_weights_reshaped which is used for n-gram attention inside the model
-            attn_weights_reshaped = (
-                layer_head_mask.view(1, -1, 1, 1) * attn_weights_reshaped
-            )
+            attn_weights_reshaped = layer_head_mask.view(1, -1, 1, 1) * attn_weights_reshaped
 
         attn_probs = F.dropout(
             attn_weights,
@@ -164,12 +146,8 @@ class ProphetNetAttentionV2(ProphetNetAttention):
             attn_probs = attn_probs.to(value_states.dtype)
             attn_output = torch.einsum(
                 "bxhts,bhsd->bxhtd",
-                attn_probs.view(
-                    kv_batch_size, -1, self.num_attn_heads, *attn_probs.size()[1:]
-                ),
-                value_states.view(
-                    kv_batch_size, self.num_attn_heads, *value_states.size()[1:]
-                ),
+                attn_probs.view(kv_batch_size, -1, self.num_attn_heads, *attn_probs.size()[1:]),
+                value_states.view(kv_batch_size, self.num_attn_heads, *value_states.size()[1:]),
             )
             attn_output = attn_output.reshape(-1, *attn_output.size()[-2:])
         else:

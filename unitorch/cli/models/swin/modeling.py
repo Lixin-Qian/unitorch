@@ -4,10 +4,10 @@
 import torch
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from torch.cuda.amp import autocast
-from unitorch import hf_cached_path
 from unitorch.models.swin import (
     SwinForImageClassification as _SwinForImageClassification,
 )
+from unitorch.cli import cached_path
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
@@ -41,7 +41,7 @@ class SwinForImageClassification(_SwinForImageClassification):
             else config_name_or_path
         )
 
-        config_path = hf_cached_path(config_path)
+        config_path = cached_path(config_path)
         num_class = config.getoption("num_class", 1)
 
         inst = cls(
@@ -49,9 +49,7 @@ class SwinForImageClassification(_SwinForImageClassification):
             num_class=num_class,
         )
         if pretrained_name is not None:
-            pretrained_name_or_path = config.getoption(
-                "pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_swin_infos[pretrained_name_or_path]["weight"]
                 if pretrained_name_or_path in pretrained_swin_infos

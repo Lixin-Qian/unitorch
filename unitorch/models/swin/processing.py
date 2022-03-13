@@ -16,6 +16,10 @@ class SwinProcessor(object):
         self,
         vision_config_path: str,
     ):
+        """
+        Args:
+            vision_config_path: vision config path to swin processor
+        """
         self.vision_processor = ViTFeatureExtractor.from_json_file(vision_config_path)
 
         self.size = self.vision_processor.size
@@ -27,6 +31,10 @@ class SwinProcessor(object):
         self,
         image: Image.Image,
     ):
+        """
+        Args:
+            image: input image
+        """
         image = self.vision_processor.resize(
             image=image,
             size=self.size,

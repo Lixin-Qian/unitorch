@@ -6,6 +6,7 @@ import sys
 import logging
 import traceback
 import importlib
+import pkg_resources
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from unitorch.cli.core import CoreClass, CoreConfigureParser
@@ -17,6 +18,41 @@ def rpartial(
     **kwargs,
 ):
     return lambda *a, **kw: func(*(args + a), **dict(kwargs, **kw))
+
+
+from transformers import cached_path as hf_cached_path
+from transformers.file_utils import is_remote_url
+
+
+def cached_path(
+    url_or_filename,
+    cache_dir=None,
+    force_download=False,
+    proxies=None,
+    resume_download=False,
+    user_agent: Union[Dict, str, None] = None,
+    extract_compressed_file=False,
+    force_extract=False,
+    use_auth_token: Union[bool, str, None] = None,
+    local_files_only=False,
+) -> Optional[str]:
+    if not is_remote_url(url_or_filename):
+        pkg_filename = pkg_resources.resource_filename("unitorch", url_or_filename)
+        if os.path.exists(pkg_filename):
+            url_or_filename = pkg_filename
+
+    return hf_cached_path(
+        url_or_filename,
+        cache_dir=cache_dir,
+        force_download=force_download,
+        proxies=proxies,
+        resume_download=resume_download,
+        user_agent=user_agent,
+        extract_compressed_file=extract_compressed_file,
+        force_extract=force_extract,
+        use_auth_token=use_auth_token,
+        local_files_only=local_files_only,
+    )
 
 
 # default core config object
@@ -147,6 +183,43 @@ def init_registered_process(
         return rpartial(v["decorators"](v["obj"]), inst)
     else:
         return rpartial(v["obj"], inst)
+
+
+# script module
+class ScriptModule(object):
+    def __init__(self, config: CoreConfigureParser):
+        pass
+
+    def run(self, **kwargs):
+        pass
+
+
+registered_script = dict()
+register_script = partial(
+    registry_func,
+    save_dict=registered_script,
+)
+
+# service module
+class ServiceModule(object):
+    def __init__(self, config: CoreConfigureParser):
+        pass
+
+    def start(self, **kwargs):
+        pass
+
+    def stop(self, **kwargs):
+        pass
+
+    def restart(self, **kwargs):
+        pass
+
+
+registered_service = dict()
+register_service = partial(
+    registry_func,
+    save_dict=registered_service,
+)
 
 
 # import cli modules

@@ -10,10 +10,9 @@ import logging
 import importlib
 import unitorch.cli
 from pathlib import Path
-from unitorch import hf_cached_path
-from unitorch.cli import CoreConfigureParser
-from unitorch.services import registered_service
-from unitorch_cli import get_config_file, load_template
+from unitorch.cli import cached_path
+from unitorch.cli import CoreConfigureParser, registered_service
+from unitorch_cli import load_template
 
 
 def _sigterm_handler(signo, frame):
@@ -22,7 +21,7 @@ def _sigterm_handler(signo, frame):
 
 def daemonize(pid_file, name):
     if os.path.exists(pid_file):
-        raise RuntimeError(f"unitorch-auto-service {name} already running")
+        raise RuntimeError(f"unitorch-service {name} already running")
     pid = os.fork()
     if pid > 0:
         sys.exit(0)
@@ -38,8 +37,8 @@ def daemonize(pid_file, name):
     sys.stdout.flush()
     sys.stderr.flush()
 
-    stdin_file = f"/tmp/unitorch_auto_service_{name}.stdin.log"
-    stdout_file = f"/tmp/unitorch_auto_service_{name}.stdout.log"
+    stdin_file = f"/tmp/unitorch_service_{name}.stdin.log"
+    stdout_file = f"/tmp/unitorch_service_{name}.stdout.log"
 
     Path(stdin_file).touch()
     Path(stdout_file).touch()
@@ -58,7 +57,7 @@ def daemonize(pid_file, name):
 
 def start(name, inst, daemon_mode):
     name = name.replace("/", "_")
-    pid_file = f"/tmp/unitorch_auto_service_{name}.pid"
+    pid_file = f"/tmp/unitorch_service_{name}.pid"
     if daemon_mode:
         daemonize(pid_file, name)
     inst.start()
@@ -66,7 +65,7 @@ def start(name, inst, daemon_mode):
 
 def stop(name, inst):
     name = name.replace("/", "_")
-    pid_file = f"/tmp/unitorch_auto_service_{name}.pid"
+    pid_file = f"/tmp/unitorch_service_{name}.pid"
     if os.path.exists(pid_file):
         with open(pid_file) as f:
             os.kill(int(f.read()), signal.SIGTERM)
@@ -86,21 +85,17 @@ def service(service_action: str, service_path_or_dir: str, **kwargs):
         sys.path.insert(0, service_path_or_dir)
         for f in os.listdir(service_path_or_dir):
             fpath = os.path.normpath(os.path.join(service_path_or_dir, f))
-            if (
-                not f.startswith("_")
-                and not f.startswith(".")
-                and (f.endswith(".py") or os.path.isdir(fpath))
-            ):
+            if not f.startswith("_") and not f.startswith(".") and (f.endswith(".py") or os.path.isdir(fpath)):
                 fname = f[:-3] if f.endswith(".py") else f
                 module = importlib.import_module(f"{fname}")
     elif not service_path_or_dir.endswith(".ini"):
         load_template(service_path_or_dir)
         config_path = os.path.join(service_path_or_dir, config_file)
-        config_path = get_config_file(config_path)
+        config_path = cached_path(config_path)
         if config_path is None:
-            config_path = get_config_file(config_file)
+            config_path = cached_path(config_file)
     else:
-        config_path = get_config_file(service_path_or_dir)
+        config_path = cached_path(service_path_or_dir)
 
     params = []
     for k, v in kwargs.items():

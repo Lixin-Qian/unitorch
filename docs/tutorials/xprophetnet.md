@@ -1,5 +1,5 @@
 
-## XProphetNet Multi-Lingual Generation
+<h2 align="Center"> <p> XProphetNet Multi-Lingual Generation </p> </h2>
 
 #### Train with command line
 ##### Step 1: Prepare Customize Dataset

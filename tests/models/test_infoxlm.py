@@ -4,8 +4,9 @@
 import unitorch
 import torch
 from absl.testing import absltest, parameterized
-from unitorch import set_seed, hf_cached_path
+from unitorch import set_seed
 from unitorch.models.infoxlm import InfoXLMForGeneration, InfoXLMProcessor
+from unitorch.cli import cached_path
 from unitorch.cli import CoreConfigureParser
 from unitorch.cli.models.infoxlm.modeling import (
     InfoXLMForGeneration as CLI_InfoXLMForGeneration,
@@ -19,17 +20,13 @@ import pkg_resources
 class InfoXLMTest(parameterized.TestCase):
     def setUp(self):
         set_seed(42)
-        config_path = pkg_resources.resource_filename(
-            "unitorch", "examples/configs/core/generation/infoxlm.ini"
-        )
+        config_path = pkg_resources.resource_filename("unitorch", "examples/configs/core/generation/infoxlm.ini")
         self.config = CoreConfigureParser(config_path)
-        self.config_path = hf_cached_path(
+        self.config_path = cached_path(
             "https://huggingface.co/fuliucansheng/unilm/resolve/main/infoxlm-roberta-config.json"
         )
-        self.vocab_path = hf_cached_path(
-            "https://huggingface.co/xlm-roberta-base/resolve/main/sentencepiece.bpe.model"
-        )
-        self.weight_path = hf_cached_path(
+        self.vocab_path = cached_path("https://huggingface.co/xlm-roberta-base/resolve/main/sentencepiece.bpe.model")
+        self.weight_path = cached_path(
             "https://huggingface.co/fuliucansheng/unilm/resolve/main/default-infoxlm-pytorch-model.bin"
         )
 

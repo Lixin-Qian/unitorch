@@ -16,3 +16,41 @@ Adapter modules are the adapters for base modules, to make them support differen
 #### Command Line Interface
 Command line defines a running workflow, and it will call the needed adapter modules according to the pipeline design.
 
+#### Supported Models
+* **Text Classification**
+  - [x] Bert
+  - [x] Roberta
+  - [x] Deberta & DebertaV2
+
+* **Text Generation**
+  - [x] Bart
+  - [x] MASS
+  - [x] Unilm
+
+* **Click Prediction**
+  - [ ] DeepFM
+
+* **Multi-Lingual Generation**
+  - [x] InfoXLM
+  - [x] MBart
+  - [x] XProphetNet
+
+* **Image Classification**
+  - [x] SeNet
+  - [x] VIT
+  - [x] MAE VIT
+  - [x] Swin
+
+* **Object Detection**
+  - [x] YoloV5
+  - [x] FasterRCNN
+  - [x] DETR
+
+* **Image Segmentation**
+  - [x] DETR
+
+* **Image Caption**
+  - [x] VLP
+
+* **Multi-Modal Classification**
+  - [x] CLIP

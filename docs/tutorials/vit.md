@@ -1,5 +1,5 @@
 
-## ViT Image Classification
+<h2 align="Center"> <p> ViT Image Classification </p> </h2>
 
 #### Train with command line
 ##### Step 1: Prepare Customize Dataset
@@ -30,7 +30,7 @@ num_class = 1000
 ```ini
 [core/dataset/ast/train]
 data_files = ${core/cli:train_file}
-names = ['image', 'label']
+names = ['image', 'category']
 preprocess_functions = ['core/process/vit_image_classification(core/process/read_image(image))', 'core/process/label(category)']
 ```
 
@@ -64,7 +64,7 @@ dataset = core/dataset/ast
 loss_fn = core/loss/ce
 score_fn = core/score/acc
 monitor_fns = ['core/score/acc']
-output_header = ['image', 'label']
+output_header = ['image', 'category']
 post_process_fn = core/postprocess/classifier_score
 writer_fn = core/writer/csv
 

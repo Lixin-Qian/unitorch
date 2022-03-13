@@ -8,6 +8,7 @@ import torch.distributed as dist
 from copy import deepcopy
 from datasets import Dataset
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from unitorch.cli import cached_path
 from unitorch.datasets.huggingface import hf_datasets, hf_iterable_datasets
 from unitorch.cli import CoreClass, CoreConfigureParser
 from unitorch.cli import registered_process, register_dataset
@@ -16,32 +17,12 @@ from unitorch.cli import init_registered_process
 from unitorch.cli.models import BaseInputs, BaseTargets
 
 
-def get_data_name(data_name):
-    import pkg_resources
-
-    if not data_name.endswith(".py"):
-        return data_name
-
-    avaliable_folders = ["microsoft", "examples", "benchmarks"]
-
-    for folder in avaliable_folders:
-        data_folder = pkg_resources.resource_filename("unitorch", folder)
-
-        new_data_name = os.path.join(data_folder, data_name)
-        if os.path.exists(new_data_name):
-            return new_data_name
-
-    return data_name
-
-
 class ast_function(object):
     def __init__(self, func: str):
         for name in registered_process.keys():
             func = func.replace(name, name.replace("/", "_"))
 
-        registered_process_mapping = {
-            k.replace("/", "_"): k for k, v in registered_process.items()
-        }
+        registered_process_mapping = {k.replace("/", "_"): k for k, v in registered_process.items()}
         self.func = func
         self.__ast_func__ = ast.parse(func, "", mode="eval")
         self.__ast_keys__ = []
@@ -196,9 +177,7 @@ class ast_datasets(CoreClass):
     def __getdataset__(self, split):
         config = self.config
 
-        registered_process_mapping = {
-            k.replace("/", "_"): k for k, v in registered_process.items()
-        }
+        registered_process_mapping = {k.replace("/", "_"): k for k, v in registered_process.items()}
 
         config.set_default_section(f"core/dataset/ast")
         _iterable = config.getoption("iterable", False)
@@ -268,7 +247,7 @@ class ast_datasets(CoreClass):
             config_name = config.getoption("config_name", _config_name)
             data_dir = config.getoption("data_dir", _data_dir)
             data_files = config.getoption("data_files", _data_files)
-            data_name = get_data_name(data_name)
+            data_name = cached_path(data_name) if data_name.endswith(".py") else data_name
             dataset = _hf_datasets.from_hub(
                 data_name=data_name,
                 config_name=config_name,
@@ -293,9 +272,7 @@ class ast_datasets(CoreClass):
                     config,
                 )
 
-        enable_ddp_partition = config.getoption(
-            "enable_ddp_partition", _enable_ddp_partition
-        )
+        enable_ddp_partition = config.getoption("enable_ddp_partition", _enable_ddp_partition)
 
         if isinstance(_ast_dataset, hf_iterable_datasets):
             self.__ast_datasets__[split] = _ast_dataset(

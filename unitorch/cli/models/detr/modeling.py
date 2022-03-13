@@ -4,11 +4,11 @@
 import torch
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from torch.cuda.amp import autocast
-from unitorch import hf_cached_path
 from unitorch.models.detr import (
     DetrForDetection as _DetrForDetection,
     DetrForSegmentation as _DetrForSegmentation,
 )
+from unitorch.cli import cached_path
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
@@ -48,7 +48,7 @@ class DetrForDetection(_DetrForDetection):
             else config_name_or_path
         )
 
-        config_path = hf_cached_path(config_path)
+        config_path = cached_path(config_path)
         num_class = config.getoption("num_class", None)
 
         inst = cls(
@@ -56,9 +56,7 @@ class DetrForDetection(_DetrForDetection):
             num_class=num_class,
         )
         if pretrained_name is not None:
-            pretrained_name_or_path = config.getoption(
-                "pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_detr_infos[pretrained_name_or_path]["weight"]
                 if pretrained_name_or_path in pretrained_detr_infos
@@ -121,7 +119,7 @@ class DetrForSegmentation(_DetrForSegmentation):
             else config_name_or_path
         )
 
-        config_path = hf_cached_path(config_path)
+        config_path = cached_path(config_path)
         num_class = config.getoption("num_class", None)
         enable_bbox_loss = config.getoption("enable_bbox_loss", False)
 
@@ -131,9 +129,7 @@ class DetrForSegmentation(_DetrForSegmentation):
             enable_bbox_loss=enable_bbox_loss,
         )
         if pretrained_name is not None:
-            pretrained_name_or_path = config.getoption(
-                "pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_detr_infos[pretrained_name_or_path]["weight"]
                 if pretrained_name_or_path in pretrained_detr_infos

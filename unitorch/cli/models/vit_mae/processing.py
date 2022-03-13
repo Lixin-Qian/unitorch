@@ -3,8 +3,8 @@
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from PIL import Image
-from unitorch import hf_cached_path
 from unitorch.models.vit import ViTProcessor as _ViTProcessor
+from unitorch.cli import cached_path
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
@@ -34,16 +34,14 @@ class ViTMAEProcessor(_ViTProcessor):
     def from_core_configure(cls, config, **kwargs):
         config.set_default_section("core/process/vit_mae")
         pretrained_name = config.getoption("pretrained_name", "default-vit-mae")
-        vision_config_name_or_path = config.getoption(
-            "vision_config_path", pretrained_name
-        )
+        vision_config_name_or_path = config.getoption("vision_config_path", pretrained_name)
         vision_config_path = (
             pretrained_vit_mae_infos[vision_config_name_or_path]["vision_config"]
             if vision_config_name_or_path in pretrained_vit_mae_infos
             else vision_config_name_or_path
         )
 
-        vision_config_path = hf_cached_path(vision_config_path)
+        vision_config_path = cached_path(vision_config_path)
 
         return {
             "vision_config_path": vision_config_path,

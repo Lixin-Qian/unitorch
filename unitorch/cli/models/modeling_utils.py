@@ -35,9 +35,7 @@ class BaseObjects(object):
                 return None
             if isinstance(args[0], dict):
                 keys = args[0].keys()
-                return dict(
-                    {k: _func(*[arg[k] for arg in args], dim=dim, op=op) for k in keys}
-                )
+                return dict({k: _func(*[arg[k] for arg in args], dim=dim, op=op) for k in keys})
             if isinstance(args[0], list) or isinstance(args[0], tuple):
                 return list([_func(*arg, dim=dim, op=op) for arg in zip(*args)])
             if isinstance(args[0], torch.Tensor) and op == "stack":
@@ -61,11 +59,7 @@ class BaseObjects(object):
             setattr(self, k, v)
 
     def to_dict(self):
-        items = {
-            k: v
-            for k, v in self.__dict__.items()
-            if not callable(getattr(self, k)) and not k.startswith("__")
-        }
+        items = {k: v for k, v in self.__dict__.items() if not callable(getattr(self, k)) and not k.startswith("__")}
         return items
 
     def update(self, inputs):
@@ -156,9 +150,7 @@ class BaseTargets(BaseObjects):
         **kwargs,
     ):
         super().__init__(attrs, **kwargs)
-        assert self.sample_weight is None or isinstance(
-            self.sample_weight, torch.Tensor
-        )
+        assert self.sample_weight is None or isinstance(self.sample_weight, torch.Tensor)
 
 
 class ListInputs(BaseInputs):
@@ -241,9 +233,7 @@ class GenerationOutputs(BaseOutputs):
     ):
         super().__init__(attrs, **kwargs)
         assert isinstance(self.sequences, torch.Tensor)
-        assert self.sequences_scores is None or isinstance(
-            self.sequences_scores, torch.Tensor
-        )
+        assert self.sequences_scores is None or isinstance(self.sequences_scores, torch.Tensor)
 
 
 class GenerationTargets(BaseTargets):
@@ -396,8 +386,7 @@ class SegmentationOutputs(DetectionOutputs):
     ):
         super().__init__(attrs, **kwargs)
         assert isinstance(self.masks, torch.Tensor) or (
-            (isinstance(self.masks, list) or isinstance(self.masks, tuple))
-            and isinstance(self.masks[0], torch.Tensor)
+            (isinstance(self.masks, list) or isinstance(self.masks, tuple)) and isinstance(self.masks[0], torch.Tensor)
         )
 
 

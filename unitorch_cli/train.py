@@ -7,10 +7,10 @@ import fire
 import importlib
 import unitorch.cli
 from transformers.file_utils import is_remote_url
-from unitorch import hf_cached_path
+from unitorch.cli import cached_path
 from unitorch.cli import CoreConfigureParser, set_default_setting
 from unitorch.cli import registered_task, init_registered_module
-from unitorch_cli import get_config_file, load_template
+from unitorch_cli import load_template
 
 
 @fire.decorators.SetParseFn(str)
@@ -22,22 +22,18 @@ def train(config_path_or_template_dir: str, **kwargs):
         sys.path.insert(0, config_path_or_template_dir)
         for f in os.listdir(config_path_or_template_dir):
             fpath = os.path.normpath(os.path.join(config_path_or_template_dir, f))
-            if (
-                not f.startswith("_")
-                and not f.startswith(".")
-                and (f.endswith(".py") or os.path.isdir(fpath))
-            ):
+            if not f.startswith("_") and not f.startswith(".") and (f.endswith(".py") or os.path.isdir(fpath)):
                 fname = f[:-3] if f.endswith(".py") else f
                 module = importlib.import_module(f"{fname}")
 
     elif not config_path_or_template_dir.endswith(".ini"):
         load_template(config_path_or_template_dir)
         config_path = os.path.join(config_path_or_template_dir, config_file)
-        config_path = get_config_file(config_path)
+        config_path = cached_path(config_path)
         if config_path is None:
-            config_path = get_config_file(config_file)
+            config_path = cached_path(config_file)
     else:
-        config_path = get_config_file(config_path_or_template_dir)
+        config_path = cached_path(config_path_or_template_dir)
 
     params = []
     for k, v in kwargs.items():

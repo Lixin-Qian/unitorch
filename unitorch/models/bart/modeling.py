@@ -6,10 +6,10 @@ import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import transformers
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from transformers import BartModel, BartConfig
 from transformers.models.bart.modeling_bart import (
-    BartAttention,
     BartEncoder,
     BartDecoder,
 )
@@ -19,8 +19,8 @@ from unitorch.utils.decorators import replace
 from unitorch.models import GenericModel, GenericOutputs
 
 
-@replace(BartAttention)
-class BartAttentionV2(BartAttention):
+@replace(transformers.models.bart.modeling_bart.BartAttention)
+class _BartAttentionV2(transformers.models.bart.modeling_bart.BartAttention):
     def __init__(
         self,
         embed_dim: int,
@@ -119,10 +119,7 @@ class BartAttentionV2(BartAttention):
                 tgt_len,
                 src_len,
             ), f"Attention mask should be of size {(bsz, 1, tgt_len, src_len)}, but is {attention_mask.size()}"
-            attn_weights = (
-                attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
-                + attention_mask
-            )
+            attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len) + attention_mask
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
 
         attn_weights = F.softmax(attn_weights, dim=-1)
@@ -131,9 +128,7 @@ class BartAttentionV2(BartAttention):
             assert layer_head_mask.size() == (
                 self.num_heads,
             ), f"Head mask for a single layer should be of size {(self.num_heads,)}, but is {layer_head_mask.size()}"
-            attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights.view(
-                bsz, self.num_heads, tgt_len, src_len
-            )
+            attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
 
         if output_attentions:
@@ -141,12 +136,8 @@ class BartAttentionV2(BartAttention):
             # make sure that attn_weights keeps its gradient.
             # In order to do so, attn_weights have to reshaped
             # twice and have to be reused in the following
-            attn_weights_reshaped = attn_weights.view(
-                bsz, self.num_heads, tgt_len, src_len
-            )
-            attn_weights = attn_weights_reshaped.view(
-                bsz * self.num_heads, tgt_len, src_len
-            )
+            attn_weights_reshaped = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
+            attn_weights = attn_weights_reshaped.view(bsz * self.num_heads, tgt_len, src_len)
         else:
             attn_weights_reshaped = None
 
@@ -186,36 +177,63 @@ class BartForGeneration(GenericModel, GenerationMixin):
 
     def __init__(
         self,
-        config_path,
+        config_path: str,
         gradient_checkpointing: Optional[bool] = False,
     ):
+        """
+        Args:
+            config_path: config file path to bart model
+            gradient_checkpointing: if to enable gradient_checkpointing
+        """
         super().__init__()
         self.config = BartConfig.from_json_file(config_path)
         self.config.gradient_checkpointing = gradient_checkpointing
-        self.shared = nn.Embedding(
-            self.config.vocab_size, self.config.d_model, self.config.pad_token_id
-        )
+        self.shared = nn.Embedding(self.config.vocab_size, self.config.d_model, self.config.pad_token_id)
         self.encoder = BartEncoder(self.config, self.shared)
         self.decoder = BartDecoder(self.config, self.shared)
 
         self.init_weights()
 
     def get_input_embeddings(self):
+        """
+        Returns the model's input embeddings.
+        Returns:
+            `nn.Module`: A torch module mapping vocabulary to hidden states.
+        """
         return self.shared
 
     def set_input_embeddings(self, value):
+        """
+        Set model's input embeddings.
+        Args:
+            value (`nn.Module`): A module mapping vocabulary to hidden states.
+        """
         self.shared = value
         self.encoder.embed_tokens = self.shared
         self.decoder.embed_tokens = self.shared
 
     def get_encoder(self):
+        """
+        Returns the model's encoder.
+        Returns:
+            `nn.Module`: A torch module encoder to process hidden states.
+        """
         return self.encoder
 
     def get_decoder(self):
+        """
+        Returns the model's decoder.
+        Returns:
+            `nn.Module`: A torch module decoder to process hidden states.
+        """
         return self.decoder
 
     @property
     def device(self) -> torch.device:
+        """
+        `torch.device`: The device on which the module is (assuming that all the module parameters are on the same
+        device).
+        """
         return next(self.parameters()).device
 
     def prepare_inputs_for_generation(
@@ -228,15 +246,16 @@ class BartForGeneration(GenericModel, GenerationMixin):
         encoder_outputs=None,
         **kwargs,
     ):
+        """
+        Implement in subclasses of [`PreTrainedModel`] for custom behavior to prepare inputs in the generate method.
+        """
         decoder_length = decoder_input_ids.size(1)
         if past is not None:
             decoder_input_ids = decoder_input_ids[:, -1:]
 
         if decoder_length == 1:
             encoder_hidden_states = encoder_outputs.last_hidden_state
-            encoder_hidden_states = encoder_hidden_states.view(
-                -1, self.num_beams, *encoder_hidden_states.size()[1:]
-            )
+            encoder_hidden_states = encoder_hidden_states.view(-1, self.num_beams, *encoder_hidden_states.size()[1:])
             encoder_hidden_states = encoder_hidden_states[:, 0]
             encoder_outputs.last_hidden_state = encoder_hidden_states
 
@@ -254,11 +273,7 @@ class BartForGeneration(GenericModel, GenerationMixin):
         for layer_past in past:
             # cached cross_attention states don't have to be reordered -> they are always the same
             reordered_past += (
-                tuple(
-                    past_state.index_select(0, beam_idx)
-                    for past_state in layer_past[:2]
-                )
-                + layer_past[2:],
+                tuple(past_state.index_select(0, beam_idx) for past_state in layer_past[:2]) + layer_past[2:],
             )
         return reordered_past
 
@@ -269,12 +284,8 @@ class BartForGeneration(GenericModel, GenerationMixin):
         reordered_past = ()
         for layer_past in past:
             # cached cross_attention states don't have to be reordered -> they are always the same
-            past_state1 = tuple(
-                [past_state.index_select(0, beam_idx) for past_state in layer_past[:2]]
-            )
-            past_state2 = tuple(
-                [past_state.index_select(0, batch_idx) for past_state in layer_past[2:]]
-            )
+            past_state1 = tuple([past_state.index_select(0, beam_idx) for past_state in layer_past[:2]])
+            past_state2 = tuple([past_state.index_select(0, batch_idx) for past_state in layer_past[2:]])
             reordered_past += (past_state1 + past_state2,)
 
         return reordered_past
@@ -294,6 +305,15 @@ class BartForGeneration(GenericModel, GenerationMixin):
         decoder_length: Optional[int] = None,
         return_dict: Optional[bool] = None,
     ):
+        """
+        Args:
+            tokens_ids_a: tokens of encode text
+            tokens_mask_a: token masks of encode text
+            tokens_ids_b: tokens of decode text
+            tokens_mask_b: token masks of decode text
+            others: used in beam search
+        Returns: forward logits
+        """
         if self.training:
             encoder_outputs = self.encoder(tokens_ids_a, attention_mask=tokens_mask_a)
             decoder_outputs = self.decoder(
@@ -305,9 +325,7 @@ class BartForGeneration(GenericModel, GenerationMixin):
             logits = F.linear(decoder_outputs[0], self.shared.weight)
             return logits
         batch_size = decoder_input_ids.size(0)
-        decoder_attention_mask = torch.ones(batch_size, decoder_length).to(
-            decoder_input_ids
-        )
+        decoder_attention_mask = torch.ones(batch_size, decoder_length).to(decoder_input_ids)
         outputs = self.decoder(
             input_ids=decoder_input_ids,
             attention_mask=decoder_attention_mask,
@@ -344,6 +362,10 @@ class BartForGeneration(GenericModel, GenerationMixin):
         top_k=50,
         top_p=1.0,
     ):
+        """
+        Args:
+            tokens_ids: tokens of encode text
+        """
         self.num_beams = num_beams
         outputs = super().generate(
             tokens_ids,
@@ -368,17 +390,13 @@ class BartForGeneration(GenericModel, GenerationMixin):
             output_scores=True,
         )
 
-        sequences = outputs.sequences.reshape(
-            -1, num_return_sequences, outputs.sequences.size(-1)
+        sequences = outputs.sequences.reshape(-1, num_return_sequences, outputs.sequences.size(-1))
+        outputs.sequences = torch.zeros(sequences.size(0), num_return_sequences, max_gen_seq_length).to(
+            device=sequences.device
         )
-        outputs.sequences = torch.zeros(
-            sequences.size(0), num_return_sequences, max_gen_seq_length
-        ).to(device=sequences.device)
         outputs.sequences[:, :, : sequences.size(-1)].copy_(sequences)
 
         if num_return_sequences == 1:
             outputs.sequences = outputs.sequences.reshape(-1, max_gen_seq_length)
 
-        return GenericOutputs(
-            sequences=outputs.sequences, sequences_scores=outputs.sequences_scores
-        )
+        return GenericOutputs(sequences=outputs.sequences, sequences_scores=outputs.sequences_scores)

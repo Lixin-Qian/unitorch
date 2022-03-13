@@ -7,6 +7,7 @@ from itertools import cycle
 from torch.utils import data
 from datasets import load_dataset
 from datasets import Dataset
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 
 class hf_datasets(data.Dataset):
@@ -16,17 +17,30 @@ class hf_datasets(data.Dataset):
     """
 
     def __init__(self, dataset: Dataset):
+        """A class based on huggingface datasets
+        `dataset` is an instance of huggingface dataset
+        """
         self.__dataset__ = dataset
 
     @classmethod
     def from_csv(
         cls,
-        data_dir=None,
-        data_files=None,
-        names=None,
-        sep="\t",
-        split=None,
+        data_dir: Optional[str] = None,
+        data_files: Optional[Union[str, List[str]]] = None,
+        names: Optional[List[str]] = None,
+        sep: Optional[str] = "\t",
+        split: Optional[str] = None,
     ):
+        """
+        A classmethod of load csv/tsv/text files dataset
+        Args:
+            data_dir: defining the data_dir of the dataset configuration.
+            data_files: path(s) to source data file(s).
+            names: header names to data file(s).
+            sep: seperator for text file(s).
+            split: which split of the data to load.
+        Returns: return a dataset.
+        """
         if data_files is None:
             return
 
@@ -50,11 +64,20 @@ class hf_datasets(data.Dataset):
     @classmethod
     def from_json(
         cls,
-        data_dir=None,
-        data_files=None,
-        field=None,
-        split=None,
+        data_dir: Optional[str] = None,
+        data_files: Optional[Union[str, List[str]]] = None,
+        field: Optional[str] = None,
+        split: Optional[str] = None,
     ):
+        """
+        A classmethod of load json files dataset
+        Args:
+            data_dir: defining the data_dir of the dataset configuration.
+            data_files: path(s) to source data file(s).
+            field: specify the field to load in json file.
+            split: which split of the data to load.
+        Returns: return a dataset.
+        """
         if data_files is None:
             return
 
@@ -76,10 +99,18 @@ class hf_datasets(data.Dataset):
     @classmethod
     def from_parquet(
         cls,
-        data_dir=None,
-        data_files=None,
-        split=None,
+        data_dir: Optional[str] = None,
+        data_files: Optional[Union[str, List[str]]] = None,
+        split: Optional[str] = None,
     ):
+        """
+        A classmethod of load parquet files dataset
+        Args:
+            data_dir: defining the data_dir of the dataset configuration.
+            data_files: path(s) to source data file(s).
+            split: which split of the data to load.
+        Returns: return a dataset.
+        """
         if data_files is None:
             return
 
@@ -102,10 +133,20 @@ class hf_datasets(data.Dataset):
         cls,
         data_name,
         config_name=None,
-        data_dir=None,
-        data_files=None,
-        split=None,
+        data_dir: Optional[str] = None,
+        data_files: Optional[Union[str, List[str]]] = None,
+        split: Optional[str] = None,
     ):
+        """
+        A classmethod of load hf hub dataset
+        Args:
+            data_name: a dataset repository on the hf hub.
+            config_name: defining the name of the dataset configuration.
+            data_dir: defining the data_dir of the dataset configuration.
+            data_files: path(s) to source data file(s).
+            split: which split of the data to load.
+        Returns: return a dataset.
+        """
         __dataset__ = load_dataset(
             data_name,
             name=config_name,
@@ -118,6 +159,9 @@ class hf_datasets(data.Dataset):
 
     @property
     def dataset(self):
+        """
+        The property of actual hf dataset
+        """
         return self.__dataset__
 
     def __getitem__(self, idx):
@@ -145,12 +189,22 @@ class hf_iterable_datasets(data.IterableDataset):
     @classmethod
     def from_csv(
         cls,
-        data_dir=None,
-        data_files=None,
-        names=None,
-        sep="\t",
-        split=None,
+        data_dir: Optional[str] = None,
+        data_files: Optional[Union[str, List[str]]] = None,
+        names: Optional[List[str]] = None,
+        sep: Optional[str] = "\t",
+        split: Optional[str] = None,
     ):
+        """
+        A classmethod of load csv/tsv/text files dataset
+        Args:
+            data_dir: defining the data_dir of the dataset configuration.
+            data_files: path(s) to source data file(s).
+            names: header names to data file(s).
+            sep: seperator for text file(s).
+            split: which split of the data to load.
+        Returns: return a streaming dataset.
+        """
         if data_files is None:
             return
 
@@ -175,11 +229,20 @@ class hf_iterable_datasets(data.IterableDataset):
     @classmethod
     def from_json(
         cls,
-        data_dir=None,
-        data_files=None,
-        field=None,
-        split=None,
+        data_dir: Optional[str] = None,
+        data_files: Optional[Union[str, List[str]]] = None,
+        field: Optional[str] = None,
+        split: Optional[str] = None,
     ):
+        """
+        A classmethod of load json files dataset
+        Args:
+            data_dir: defining the data_dir of the dataset configuration.
+            data_files: path(s) to source data file(s).
+            field: specify the field to load in json file.
+            split: which split of the data to load.
+        Returns: return a streaming dataset.
+        """
         if data_files is None:
             return
 
@@ -202,10 +265,18 @@ class hf_iterable_datasets(data.IterableDataset):
     @classmethod
     def from_parquet(
         cls,
-        data_dir=None,
-        data_files=None,
-        split=None,
+        data_dir: Optional[str] = None,
+        data_files: Optional[Union[str, List[str]]] = None,
+        split: Optional[str] = None,
     ):
+        """
+        A classmethod of load parquet files dataset
+        Args:
+            data_dir: defining the data_dir of the dataset configuration.
+            data_files: path(s) to source data file(s).
+            split: which split of the data to load.
+        Returns: return a streaming dataset.
+        """
         if data_files is None:
             return
 
@@ -228,11 +299,21 @@ class hf_iterable_datasets(data.IterableDataset):
     def from_hub(
         cls,
         data_name,
-        config_name=None,
-        data_dir=None,
-        data_files=None,
-        split=None,
+        config_name: Optional[str] = None,
+        data_dir: Optional[str] = None,
+        data_files: Optional[Union[str, List[str]]] = None,
+        split: Optional[str] = None,
     ):
+        """
+        A classmethod of load hf hub dataset
+        Args:
+            data_name: a dataset repository on the hf hub.
+            config_name: defining the name of the dataset configuration.
+            data_dir: defining the data_dir of the dataset configuration.
+            data_files: path(s) to source data file(s).
+            split: which split of the data to load.
+        Returns: return a streaming dataset
+        """
         __dataset__ = load_dataset(
             data_name,
             name=config_name,
@@ -246,6 +327,9 @@ class hf_iterable_datasets(data.IterableDataset):
 
     @property
     def dataset(self):
+        """
+        The property of actual hf dataset
+        """
         return self.__dataset__
 
     def __iter__(self):

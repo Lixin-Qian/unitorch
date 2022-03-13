@@ -14,27 +14,24 @@ from sklearn.metrics import (
 )
 
 # some functions
-def convert_tensor_to_2D_strings(inputs: torch.Tensor):
+def _convert_tensor_to_2D_strings(inputs: torch.Tensor):
     return [list(map(str, t1)) for t1 in inputs]
 
 
-def convert_tensor_to_3D_strings(inputs: torch.Tensor):
+def _convert_tensor_to_3D_strings(inputs: torch.Tensor):
     return [[list(map(str, t2)) for t2 in t1] for t1 in inputs]
 
 
-def remove_2D_strings_ignore_tokens(inputs, ignore_tokens):
+def _remove_2D_strings_ignore_tokens(inputs, ignore_tokens):
     if ignore_tokens is None:
         return inputs
     return [list(filter(lambda x: x not in ignore_tokens, t1)) for t1 in inputs]
 
 
-def remove_3D_strings_ignore_tokens(inputs, ignore_tokens):
+def _remove_3D_strings_ignore_tokens(inputs, ignore_tokens):
     if ignore_tokens is None:
         return inputs
-    return [
-        [list(filter(lambda x: x not in ignore_tokens, t2)) for t2 in t1]
-        for t1 in inputs
-    ]
+    return [[list(filter(lambda x: x not in ignore_tokens, t2)) for t2 in t1] for t1 in inputs]
 
 
 from unitorch.score.bleu import bleu_score

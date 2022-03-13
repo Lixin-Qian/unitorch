@@ -8,6 +8,7 @@ import random
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+import fairseq
 
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from collections import OrderedDict
@@ -18,7 +19,6 @@ from transformers.generation_utils import GenerationMixin
 from transformers.modeling_outputs import Seq2SeqLMOutput
 from transformers.configuration_utils import PretrainedConfig
 from transformers.file_utils import ModelOutput
-from fairseq.modules.multihead_attention import MultiheadAttention
 from fairseq.models.transformer import TransformerEncoder, TransformerDecoder
 from fairseq.tokenizer import tokenize_line
 from fairseq.binarizer import safe_readline
@@ -36,7 +36,7 @@ def _reorder_buffer(attn_cache, new_order):
     return attn_cache
 
 
-class BertDictionary(Dictionary):
+class _BertDictionary(Dictionary):
     """A mapping from symbols to consecutive integers"""
 
     def __init__(
@@ -86,8 +86,8 @@ class BertDictionary(Dictionary):
         self._save(f, zip(ex_keys + self.symbols, ex_vals + self.count))
 
 
-@replace(MultiheadAttention)
-class MultiheadAttentionV2(MultiheadAttention):
+@replace(fairseq.modules.multihead_attention.MultiheadAttention)
+class _MultiheadAttentionV2(fairseq.modules.multihead_attention.MultiheadAttention):
     def __init__(
         self,
         embed_dim,
@@ -227,9 +227,7 @@ class MultiheadAttentionV2(MultiheadAttention):
             k = torch.cat([k, self.bias_k.repeat(1, bsz, 1)])
             v = torch.cat([v, self.bias_v.repeat(1, bsz, 1)])
             if attn_mask is not None:
-                attn_mask = torch.cat(
-                    [attn_mask, attn_mask.new_zeros(attn_mask.size(0), 1)], dim=1
-                )
+                attn_mask = torch.cat([attn_mask, attn_mask.new_zeros(attn_mask.size(0), 1)], dim=1)
             if key_padding_mask is not None:
                 key_padding_mask = torch.cat(
                     [
@@ -239,25 +237,13 @@ class MultiheadAttentionV2(MultiheadAttention):
                     dim=1,
                 )
 
-        q = (
-            q.contiguous()
-            .view(tgt_len, bsz * self.num_heads, self.head_dim)
-            .transpose(0, 1)
-        )
+        q = q.contiguous().view(tgt_len, bsz * self.num_heads, self.head_dim).transpose(0, 1)
         if k is not None:
             kv_bsz = k.size(1)
-            k = (
-                k.contiguous()
-                .view(-1, kv_bsz * self.num_heads, self.head_dim)
-                .transpose(0, 1)
-            )
+            k = k.contiguous().view(-1, kv_bsz * self.num_heads, self.head_dim).transpose(0, 1)
         if v is not None:
             kv_bsz = v.size(1)
-            v = (
-                v.contiguous()
-                .view(-1, kv_bsz * self.num_heads, self.head_dim)
-                .transpose(0, 1)
-            )
+            v = v.contiguous().view(-1, kv_bsz * self.num_heads, self.head_dim).transpose(0, 1)
 
         if saved_state is not None:
             # saved states are stored with shape (bsz, num_heads, seq_len, head_dim)
@@ -275,9 +261,7 @@ class MultiheadAttentionV2(MultiheadAttention):
                 _prev_value = saved_state["prev_value"]
                 assert _prev_value is not None
                 kv_bsz == _prev_value.size(0)
-                prev_value = _prev_value.view(
-                    kv_bsz * self.num_heads, -1, self.head_dim
-                )
+                prev_value = _prev_value.view(kv_bsz * self.num_heads, -1, self.head_dim)
                 if static_kv:
                     v = prev_value
                 else:
@@ -287,7 +271,7 @@ class MultiheadAttentionV2(MultiheadAttention):
             if "prev_key_padding_mask" in saved_state:
                 prev_key_padding_mask = saved_state["prev_key_padding_mask"]
             assert k is not None and v is not None
-            key_padding_mask = MultiheadAttention._append_prev_key_padding_mask(
+            key_padding_mask = fairseq.modules.multihead_attention.MultiheadAttention._append_prev_key_padding_mask(
                 key_padding_mask=key_padding_mask,
                 prev_key_padding_mask=prev_key_padding_mask,
                 batch_size=kv_bsz,
@@ -296,9 +280,7 @@ class MultiheadAttentionV2(MultiheadAttention):
             )
 
             saved_state["prev_key"] = k.view(kv_bsz, self.num_heads, -1, self.head_dim)
-            saved_state["prev_value"] = v.view(
-                kv_bsz, self.num_heads, -1, self.head_dim
-            )
+            saved_state["prev_value"] = v.view(kv_bsz, self.num_heads, -1, self.head_dim)
             saved_state["prev_key_padding_mask"] = key_padding_mask
             # In this branch incremental_state is never None
             assert incremental_state is not None
@@ -321,16 +303,12 @@ class MultiheadAttentionV2(MultiheadAttention):
             k = torch.cat([k, k.new_zeros((k.size(0), 1) + k.size()[2:])], dim=1)
             v = torch.cat([v, v.new_zeros((v.size(0), 1) + v.size()[2:])], dim=1)
             if attn_mask is not None:
-                attn_mask = torch.cat(
-                    [attn_mask, attn_mask.new_zeros(attn_mask.size(0), 1)], dim=1
-                )
+                attn_mask = torch.cat([attn_mask, attn_mask.new_zeros(attn_mask.size(0), 1)], dim=1)
             if key_padding_mask is not None:
                 key_padding_mask = torch.cat(
                     [
                         key_padding_mask,
-                        torch.zeros(key_padding_mask.size(0), 1).type_as(
-                            key_padding_mask
-                        ),
+                        torch.zeros(key_padding_mask.size(0), 1).type_as(key_padding_mask),
                     ],
                     dim=1,
                 )
@@ -358,16 +336,11 @@ class MultiheadAttentionV2(MultiheadAttention):
         if key_padding_mask is not None:
             # don't attend to padding symbols
             attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
-            attn_weights = attn_weights.view(
-                kv_bsz, -1, self.num_heads, tgt_len, src_len
-            )
+            attn_weights = attn_weights.view(kv_bsz, -1, self.num_heads, tgt_len, src_len)
 
             if not is_tpu:
                 attn_weights = attn_weights.masked_fill(
-                    key_padding_mask.unsqueeze(1)
-                    .unsqueeze(2)
-                    .unsqueeze(3)
-                    .to(torch.bool),
+                    key_padding_mask.unsqueeze(1).unsqueeze(2).unsqueeze(3).to(torch.bool),
                     float("-inf"),
                 )
             else:
@@ -379,9 +352,7 @@ class MultiheadAttentionV2(MultiheadAttention):
         if before_softmax:
             return attn_weights, v
 
-        attn_weights_float = utils.softmax(
-            attn_weights, dim=-1, onnx_trace=self.onnx_trace
-        )
+        attn_weights_float = utils.softmax(attn_weights, dim=-1, onnx_trace=self.onnx_trace)
         attn_weights = attn_weights_float.type_as(attn_weights)
         attn_probs = self.dropout_module(attn_weights)
 
@@ -405,9 +376,7 @@ class MultiheadAttentionV2(MultiheadAttention):
         attn = self.out_proj(attn)
         attn_weights: Optional[Tensor] = None
         if need_weights:
-            attn_weights = attn_weights_float.view(
-                bsz, self.num_heads, tgt_len, src_len
-            ).transpose(1, 0)
+            attn_weights = attn_weights_float.view(bsz, self.num_heads, tgt_len, src_len).transpose(1, 0)
             if not need_head_weights:
                 # average attention weights over heads
                 attn_weights = attn_weights.mean(dim=0)
@@ -415,7 +384,7 @@ class MultiheadAttentionV2(MultiheadAttention):
         return attn, attn_weights
 
 
-class MassConfig(PretrainedConfig):
+class _MassConfig(PretrainedConfig):
     def __init__(self, **params):
         super().__init__(**params)
         self.adaptive_softmax_cutoff = None
@@ -427,17 +396,22 @@ class MassConfig(PretrainedConfig):
 class MASSForGeneration(GenericModel, GenerationMixin):
     main_input_name = "input_ids"
 
-    def __init__(self, config_path, vocab_path):
+    def __init__(
+        self,
+        config_path: str,
+        vocab_path: str,
+    ):
         super().__init__()
-        self.config = MassConfig.from_json_file(config_path)
-        self.dictionary = BertDictionary.load_from_file(vocab_path)
-        self.shared = nn.Embedding(
-            self.config.vocab_size, self.config.encoder_embed_dim, 0
-        )
+        """
+        Args:
+            config_path: config file path to mass model
+            vocab_path: vocab file path in mass model
+        """
+        self.config = _MassConfig.from_json_file(config_path)
+        self.dictionary = _BertDictionary.load_from_file(vocab_path)
+        self.shared = nn.Embedding(self.config.vocab_size, self.config.encoder_embed_dim, 0)
 
-        self.encoder = TransformerEncoder(
-            self.config, dictionary=self.dictionary, embed_tokens=self.shared
-        )
+        self.encoder = TransformerEncoder(self.config, dictionary=self.dictionary, embed_tokens=self.shared)
         self.encoder.main_input_name = "input_ids"
         self.decoder = TransformerDecoder(
             self.config,
@@ -447,23 +421,43 @@ class MASSForGeneration(GenericModel, GenerationMixin):
         self.init_weights()
 
     def get_input_embeddings(self):
+        """
+        Returns the model's input embeddings.
+        Returns:
+            `nn.Module`: A torch module mapping vocabulary to hidden states.
+        """
         return self.shared
 
     def set_input_embeddings(self, value):
+        """
+        Set model's input embeddings.
+        Args:
+            value (`nn.Module`): A module mapping vocabulary to hidden states.
+        """
         self.shared = value
         self.encoder.embed_tokens = self.shared
         self.decoder.embed_tokens = self.shared
 
     def get_encoder(self):
+        """
+        Returns the model's encoder.
+        Returns:
+            `nn.Module`: A torch module encoder to process hidden states.
+        """
         return self.encoder
 
     def get_decoder(self):
+        """
+        Returns the model's decoder.
+        Returns:
+            `nn.Module`: A torch module decoder to process hidden states.
+        """
         return self.decoder
 
     @property
     def device(self) -> device:
         """
-        :obj:`torch.device`: The device on which the module is (assuming that all the module parameters are on the same
+        `torch.device`: The device on which the module is (assuming that all the module parameters are on the same
         device).
         """
         return next(self.parameters()).device
@@ -477,9 +471,7 @@ class MASSForGeneration(GenericModel, GenerationMixin):
         # retrieve encoder hidden states
         encoder = self.get_encoder()
         encoder_kwargs = {
-            argument: value
-            for argument, value in model_kwargs.items()
-            if not argument.startswith("decoder_")
+            argument: value for argument, value in model_kwargs.items() if not argument.startswith("decoder_")
         }
         encoder_outputs = encoder(input_ids, src_lengths=input_ids.ne(0).sum(-1))
         model_kwargs["encoder_outputs"] = ModelOutput(
@@ -501,6 +493,9 @@ class MASSForGeneration(GenericModel, GenerationMixin):
         encoder_outputs=None,
         **kwargs,
     ):
+        """
+        Implement in subclasses of [`PreTrainedModel`] for custom behavior to prepare inputs in the generate method.
+        """
         if past is not None:
             decoder_input_ids = decoder_input_ids[:, -1:]
 
@@ -547,10 +542,15 @@ class MASSForGeneration(GenericModel, GenerationMixin):
         output_hidden_states=None,
         return_dict=None,
     ):
+        """
+        Args:
+            tokens_ids_a: tokens of encode text
+            tokens_ids_b: tokens of decode text
+            others: used in beam search
+        Returns: forward logits
+        """
         if self.training:
-            encoder_outputs = self.encoder(
-                tokens_ids_a, src_lengths=tokens_ids_a.ne(0).sum(-1)
-            )
+            encoder_outputs = self.encoder(tokens_ids_a, src_lengths=tokens_ids_a.ne(0).sum(-1))
             decoder_outputs = self.decoder(tokens_ids_b, encoder_out=encoder_outputs)
             return decoder_outputs[0]
         if incremental_state is None:
@@ -561,9 +561,7 @@ class MASSForGeneration(GenericModel, GenerationMixin):
             encoder_out=encoder_outputs,
             incremental_state=incremental_state,
         )
-        return Seq2SeqLMOutput(
-            logits=decoder_outputs[0], past_key_values=incremental_state
-        )
+        return Seq2SeqLMOutput(logits=decoder_outputs[0], past_key_values=incremental_state)
 
     def generate(
         self,
@@ -586,6 +584,10 @@ class MASSForGeneration(GenericModel, GenerationMixin):
         top_k=50,
         top_p=1.0,
     ):
+        """
+        Args:
+            tokens_ids: tokens of encode text
+        """
         outputs = super().generate(
             tokens_ids,
             max_length=max_gen_seq_length,
@@ -609,17 +611,13 @@ class MASSForGeneration(GenericModel, GenerationMixin):
             output_scores=True,
         )
 
-        sequences = outputs.sequences.reshape(
-            -1, num_return_sequences, outputs.sequences.size(-1)
+        sequences = outputs.sequences.reshape(-1, num_return_sequences, outputs.sequences.size(-1))
+        outputs.sequences = torch.zeros(sequences.size(0), num_return_sequences, max_gen_seq_length).to(
+            device=sequences.device
         )
-        outputs.sequences = torch.zeros(
-            sequences.size(0), num_return_sequences, max_gen_seq_length
-        ).to(device=sequences.device)
         outputs.sequences[:, :, : sequences.size(-1)].copy_(sequences)
 
         if num_return_sequences == 1:
             outputs.sequences = outputs.sequences.reshape(-1, max_gen_seq_length)
 
-        return GenericOutputs(
-            sequences=outputs.sequences, sequences_scores=outputs.sequences_scores
-        )
+        return GenericOutputs(sequences=outputs.sequences, sequences_scores=outputs.sequences_scores)

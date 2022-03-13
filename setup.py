@@ -18,13 +18,11 @@ extras = {}
 
 extras["deepspeed"] = ["deepspeed==0.5.8"]
 extras["onnxruntime"] = [
-    "onnxruntime==0.5.8",
-    "torch-ort",
+    "onnxruntime==1.9.0",
+    "onnxruntime-gpu==1.9.0",
+    "torch-ort==1.9.0",
 ]
-extras["detection"] = [
-    "torch==1.7.1",
-    "torchvision==0.8.2",
-    "opencv-python==4.4.0.44",
+extras["detectron2"] = [
     "detectron2 @ git+https://github.com/facebookresearch/detectron2@v0.6",
 ]
 
@@ -71,6 +69,7 @@ def do_setup(package_data, package_extensions):
             "Operating System :: OS Independent",
             "Programming Language :: Python :: 3.6",
             "Programming Language :: Python :: 3.7",
+            "Programming Language :: Python :: 3.8",
             "Topic :: Scientific/Engineering :: Artificial Intelligence",
         ],
         ext_modules=package_extensions,
@@ -99,7 +98,8 @@ def get_files(path, relative_to="unitorch"):
 
 if __name__ == "__main__":
     extensions = []
-    link_folders = ["microsoft", "examples", "benchmarks", "scripts", "services"]
+    ignore_folders = ["dockers", "docs", "notebooks", "tests", "unitorch", "unitorch_cli"]
+    link_folders = [f for f in os.listdir(".") if os.path.isdir(f) and not f.startswith(".") and f not in ignore_folders]
     try:
         # symlink folders into unitorch package so package_data accepts them
         for folder in link_folders:
@@ -109,10 +109,7 @@ if __name__ == "__main__":
 
         package_data = {
             "unitorch": sum(
-                [
-                    get_files(os.path.join("unitorch", folder))
-                    for folder in link_folders
-                ],
+                [get_files(os.path.join("unitorch", folder)) for folder in link_folders],
                 [],
             )
         }

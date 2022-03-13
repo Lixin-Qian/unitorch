@@ -161,9 +161,7 @@ class DistributedSkipSampler(DistributedSampler):
             if padding_size <= len(indices):
                 indices += indices[:padding_size]
             else:
-                indices += (indices * math.ceil(padding_size / len(indices)))[
-                    :padding_size
-                ]
+                indices += (indices * math.ceil(padding_size / len(indices)))[:padding_size]
         else:
             # remove tail of data to make it evenly divisible.
             indices = indices[: self.total_size]
@@ -245,9 +243,7 @@ def collate_fn(bufs):
     if isinstance(multi_inputs[0], BaseInputs):
         inputs = type(multi_inputs[0]).from_list(*multi_inputs)
     else:
-        multi_inputs = [
-            type(_inputs[0]).from_list(*_inputs) for _inputs in list(zip(*multi_inputs))
-        ]
+        multi_inputs = [type(_inputs[0]).from_list(*_inputs) for _inputs in list(zip(*multi_inputs))]
         inputs = BaseInputs()
         for _inputs in multi_inputs:
             inputs.update(_inputs)
@@ -255,10 +251,7 @@ def collate_fn(bufs):
     if isinstance(multi_targets[0], BaseTargets):
         targets = type(multi_targets[0]).from_list(*multi_targets)
     else:
-        multi_targets = [
-            type(_targets[0]).from_list(*_targets)
-            for _targets in list(zip(*multi_targets))
-        ]
+        multi_targets = [type(_targets[0]).from_list(*_targets) for _targets in list(zip(*multi_targets))]
         targets = BaseTargets()
         for _targets in multi_targets:
             targets.update(_targets)
@@ -369,9 +362,7 @@ class SupervisedTask(object):
 
         if isinstance(outputs[0], LossOutputs):
             outputs = LossOutputs(
-                loss=torch.tensor([output.loss for output in outputs]).to(
-                    device=outputs[0].loss.device
-                )
+                loss=torch.tensor([output.loss for output in outputs]).to(device=outputs[0].loss.device)
             )
             if dist.is_initialized():
                 outputs = outputs.cuda().sync().cpu()
@@ -417,9 +408,7 @@ class SupervisedTask(object):
             new_score = results.score
             if new_score > self.best_score:
                 self.best_score = new_score
-                base_model = (
-                    self.model.module if hasattr(self.model, "module") else self.model
-                )
+                base_model = self.model.module if hasattr(self.model, "module") else self.model
                 base_model.save_checkpoint(
                     ckpt_dir=ckpt_dir,
                 )
@@ -435,9 +424,7 @@ class SupervisedTask(object):
 
             info_path = kwargs.pop("info_path", None)
             if info_path:
-                base_model = (
-                    self.model.module if hasattr(self.model, "module") else self.model
-                )
+                base_model = self.model.module if hasattr(self.model, "module") else self.model
                 base_model.save_checkpoint(
                     ckpt_dir=ckpt_dir,
                     weight_name="pytorch_model_latest.bin",
@@ -558,9 +545,7 @@ class SupervisedTask(object):
         dataset_train = self.datasets.get("train")
         iter_train = DataLoader(
             dataset_train,
-            sampler=train_sampler(dataset_train)
-            if not isinstance(dataset_train, Iterable)
-            else None,
+            sampler=train_sampler(dataset_train) if not isinstance(dataset_train, Iterable) else None,
             batch_size=train_batch_size,
             shuffle=False,
             pin_memory=pin_memory,
@@ -571,9 +556,7 @@ class SupervisedTask(object):
         dataset_dev = self.datasets.get("dev")
         iter_dev = DataLoader(
             dataset_dev,
-            sampler=dev_sampler(dataset_dev)
-            if not isinstance(dataset_dev, Iterable)
-            else None,
+            sampler=dev_sampler(dataset_dev) if not isinstance(dataset_dev, Iterable) else None,
             batch_size=dev_batch_size,
             shuffle=False,
             pin_memory=pin_memory,
@@ -584,19 +567,11 @@ class SupervisedTask(object):
         if scheduler is not None:
             if not isinstance(dataset_train, Iterable):
                 num_training_steps = int(
-                    epochs
-                    * len(dataset_train)
-                    // train_batch_size
-                    // max(1, self.n_gpu)
-                    // grad_acc_step
+                    epochs * len(dataset_train) // train_batch_size // max(1, self.n_gpu) // grad_acc_step
                 )
             else:
                 num_training_steps = int(
-                    epochs
-                    * num_training_samples
-                    // train_batch_size
-                    // max(1, self.n_gpu)
-                    // grad_acc_step
+                    epochs * num_training_samples // train_batch_size // max(1, self.n_gpu) // grad_acc_step
                 )
 
             scheduler = init_registered_module(
@@ -667,9 +642,7 @@ class SupervisedTask(object):
                     optim.zero_grad()
 
                 if (step + 1) % log_freq == 0 and global_rank in [-1, 0]:
-                    logging.info(
-                        f"epoch {e} step {step}: loss -- { log_loss / log_freq }"
-                    )
+                    logging.info(f"epoch {e} step {step}: loss -- { log_loss / log_freq }")
                     log_loss = 0
 
                 if (step + 1) % ckpt_freq == 0:
@@ -698,6 +671,8 @@ class SupervisedTask(object):
                 if scheduler is not None:
                     scheduler.step()
                 optim.zero_grad()
+
+            log_loss = 0
 
             if hasattr(dataset_dev, "set_epoch"):
                 dataset_dev.set_epoch(dev_epoch)
@@ -760,9 +735,7 @@ class SupervisedTask(object):
         dataset_test = self.datasets.get("test")
         iter_test = DataLoader(
             dataset_test,
-            sampler=sampler(dataset_test)
-            if not isinstance(dataset_test, Iterable)
-            else None,
+            sampler=sampler(dataset_test) if not isinstance(dataset_test, Iterable) else None,
             batch_size=test_batch_size,
             shuffle=False,
             pin_memory=pin_memory,
@@ -795,9 +768,7 @@ class SupervisedTask(object):
             data_info = DatasetInfo(data_info)
             iter_data = DataLoader(
                 deepcopy(data_info),
-                sampler=sampler(data_info)
-                if not isinstance(dataset_test, Iterable)
-                else None,
+                sampler=sampler(data_info) if not isinstance(dataset_test, Iterable) else None,
                 batch_size=test_batch_size,
                 shuffle=False,
                 pin_memory=pin_memory,

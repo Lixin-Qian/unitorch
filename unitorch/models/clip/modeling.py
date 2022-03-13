@@ -18,15 +18,13 @@ from transformers.models.clip.modeling_clip import (
 from unitorch.models import GenericModel
 
 
-def contrastive_loss(logits: torch.Tensor) -> torch.Tensor:
-    return nn.functional.cross_entropy(
-        logits, torch.arange(len(logits), device=logits.device)
-    )
+def _contrastive_loss(logits: torch.Tensor) -> torch.Tensor:
+    return nn.functional.cross_entropy(logits, torch.arange(len(logits), device=logits.device))
 
 
-def clip_loss(similarity: torch.Tensor) -> torch.Tensor:
-    caption_loss = contrastive_loss(similarity)
-    image_loss = contrastive_loss(similarity.T)
+def _clip_loss(similarity: torch.Tensor) -> torch.Tensor:
+    caption_loss = _contrastive_loss(similarity)
+    image_loss = _contrastive_loss(similarity.T)
     return (caption_loss + image_loss) / 2.0
 
 
@@ -34,10 +32,18 @@ class CLIPForPretrain(GenericModel):
     def __init__(
         self,
         config_path: str,
-        projection_dim: int = 512,
-        freeze_base_model=True,
+        projection_dim: Optional[int] = 512,
+        freeze_base_model: Optional[bool] = True,
         gradient_checkpointing: Optional[bool] = False,
     ):
+        """
+        Args:
+            config_path: config file path to clip model
+            projection_dim: dimension to image/text output embedding
+            num_class: num class to classification
+            freeze_base_model: if to freeze base model
+            gradient_checkpointing: if to enable gradient_checkpointing
+        """
         super().__init__()
 
         config = CLIPConfig.from_json_file(config_path)
@@ -87,6 +93,13 @@ class CLIPForPretrain(GenericModel):
         output_attentions=None,
         output_hidden_states=None,
     ):
+        """
+        Args:
+            input_ids: tokens of text
+            pixel_values: pixels of image
+            attention_mask: attention mask of tokens
+            position_ids: position ids
+        """
         vision_outputs = self.vision_model(
             pixel_values=pixel_values,
             output_attentions=output_attentions,
@@ -114,7 +127,7 @@ class CLIPForPretrain(GenericModel):
         logit_scale = self.logit_scale.exp()
         logits_per_text = torch.matmul(text_embeds, image_embeds.t()) * logit_scale
         logits_per_image = logits_per_text.T
-        return clip_loss(logits_per_text)
+        return _clip_loss(logits_per_text)
 
 
 class CLIPForClassification(GenericModel):
@@ -126,6 +139,14 @@ class CLIPForClassification(GenericModel):
         freeze_base_model=True,
         gradient_checkpointing: Optional[bool] = False,
     ):
+        """
+        Args:
+            config_path: config file path to clip model
+            projection_dim: dimension to image/text output embedding
+            num_class: num class to classification
+            freeze_base_model: if to freeze base model
+            gradient_checkpointing: if to enable gradient_checkpointing
+        """
         super().__init__()
         config = CLIPConfig.from_json_file(config_path)
         text_config = config.text_config
@@ -175,6 +196,13 @@ class CLIPForClassification(GenericModel):
         output_attentions=None,
         output_hidden_states=None,
     ):
+        """
+        Args:
+            input_ids: tokens of text
+            pixel_values: pixels of image
+            attention_mask: attention mask of tokens
+            position_ids: position ids
+        """
         vision_outputs = self.vision_model(
             pixel_values=pixel_values,
             output_attentions=output_attentions,
@@ -211,6 +239,14 @@ class CLIPForTextClassification(GenericModel):
         freeze_base_model=True,
         gradient_checkpointing: Optional[bool] = False,
     ):
+        """
+        Args:
+            config_path: config file path to clip model
+            projection_dim: dimension to image/text output embedding
+            num_class: num class to classification
+            freeze_base_model: if to freeze base model
+            gradient_checkpointing: if to enable gradient_checkpointing
+        """
         super().__init__()
         config = CLIPConfig.from_json_file(config_path)
         text_config = config.text_config
@@ -245,6 +281,12 @@ class CLIPForTextClassification(GenericModel):
         output_attentions=None,
         output_hidden_states=None,
     ):
+        """
+        Args:
+            input_ids: tokens of text
+            attention_mask: attention mask of tokens
+            position_ids: position ids
+        """
         text_outputs = self.text_model(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -270,6 +312,14 @@ class CLIPForImageClassification(GenericModel):
         freeze_base_model=True,
         gradient_checkpointing: Optional[bool] = False,
     ):
+        """
+        Args:
+            config_path: config file path to clip model
+            projection_dim: dimension to image/text output embedding
+            num_class: num class to classification
+            freeze_base_model: if to freeze base model
+            gradient_checkpointing: if to enable gradient_checkpointing
+        """
         super().__init__()
         config = CLIPConfig.from_json_file(config_path)
         vision_config = config.vision_config
@@ -298,6 +348,10 @@ class CLIPForImageClassification(GenericModel):
         output_attentions=None,
         output_hidden_states=None,
     ):
+        """
+        Args:
+            pixel_values: pixels of image
+        """
         vision_outputs = self.vision_model(
             pixel_values=pixel_values,
             output_attentions=output_attentions,

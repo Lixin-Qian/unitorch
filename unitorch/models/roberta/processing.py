@@ -12,7 +12,7 @@ from unitorch.models import GenericOutputs, _truncate_seq_pair
 from unitorch.models import HuggingfaceClassificationProcessor
 
 
-def get_roberta_tokenizer(vocab_path, merge_path):
+def _get_roberta_tokenizer(vocab_path, merge_path):
     assert os.path.exists(vocab_path) and os.path.exists(merge_path)
     tokenizer = RobertaTokenizer(vocab_path, merge_path)
     return tokenizer
@@ -27,7 +27,15 @@ class RobertaProcessor(HuggingfaceClassificationProcessor):
         source_type_id: int = 0,
         target_type_id: int = 0,
     ):
-        tokenizer = get_roberta_tokenizer(
+        """
+        Args:
+            vocab_path: vocab file path in roberta tokenizer
+            merge_path: merge file path in roberta tokenizer
+            max_seq_length: max sequence length encode text
+            source_type_id: token type id to text_a
+            target_type_id: token type id to text_b
+        """
+        tokenizer = _get_roberta_tokenizer(
             vocab_path,
             merge_path,
         )
@@ -45,6 +53,12 @@ class RobertaProcessor(HuggingfaceClassificationProcessor):
         text_pair: str = None,
         max_seq_length: Optional[int] = None,
     ):
+        """
+        Args:
+            text: encode text
+            text_pair: decode text
+            max_seq_length: max sequence length to encode text
+        """
         max_seq_length = int(
             pop_first_non_none_value(
                 max_seq_length,
@@ -69,13 +83,7 @@ class RobertaProcessor(HuggingfaceClassificationProcessor):
                 + [self.target_type_id] * len(tokens_b)
                 + [self.target_type_id]
             )
-            tokens = (
-                [self.cls_token]
-                + tokens
-                + [self.sep_token, self.sep_token]
-                + tokens_b
-                + [self.sep_token]
-            )
+            tokens = [self.cls_token] + tokens + [self.sep_token, self.sep_token] + tokens_b + [self.sep_token]
             tokens_ids = self.tokenizer.convert_tokens_to_ids(tokens)
             tokens_mask = [1] * len(tokens_ids)
 

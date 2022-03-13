@@ -9,7 +9,6 @@ from abc import abstractmethod
 import torch
 import torch.nn as nn
 from transformers.file_utils import is_remote_url
-from unitorch import hf_cached_path
 import configparser
 
 # core class
@@ -137,7 +136,5 @@ class CoreConfigureParser(configparser.ConfigParser):
         return save_path
 
     def copy(self, config):
-        setting = [
-            (sec, k, v) for sec in config.sections() for k, v in config[sec].items()
-        ]
+        setting = [(sec, k, v) for sec in config.sections() for k, v in config[sec].items()]
         return type(self)(self.fpath, setting)

@@ -5,10 +5,10 @@ import torch
 import itertools
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from unitorch.score import (
-    convert_tensor_to_2D_strings,
-    convert_tensor_to_3D_strings,
-    remove_2D_strings_ignore_tokens,
-    remove_3D_strings_ignore_tokens,
+    _convert_tensor_to_2D_strings,
+    _convert_tensor_to_3D_strings,
+    _remove_2D_strings_ignore_tokens,
+    _remove_3D_strings_ignore_tokens,
 )
 
 
@@ -111,14 +111,14 @@ def _recon_lcs(x, y):
     return recon_tuple
 
 
-def multi_rouge_n(sequences, scores_ids, n=2):
+def _multi_rouge_n(sequences, scores_ids, n=2):
     """
     Efficient way to compute highly repetitive scoring
     i.e. sequences are involved multiple time
     Args:
         sequences(list[str]): list of sequences (either hyp or ref)
         scores_ids(list[tuple(int)]): list of pairs (hyp_id, ref_id)
-            ie. scores[i] = rouge_n(scores_ids[i][0],
+            ie. scores[i] = _rouge_n(scores_ids[i][0],
                                     scores_ids[i][1])
     Returns:
         scores: list of length `len(scores_ids)` containing rouge `n`
@@ -141,11 +141,11 @@ def multi_rouge_n(sequences, scores_ids, n=2):
         overlapping_ngrams = evaluated_ngrams.intersection(reference_ngrams)
         overlapping_count = len(overlapping_ngrams)
 
-        scores += [f_r_p_rouge_n(evaluated_count, reference_count, overlapping_count)]
+        scores += [_f_r_p_rouge_n(evaluated_count, reference_count, overlapping_count)]
     return scores
 
 
-def rouge_n(evaluated_sentences, reference_sentences, n=2):
+def _rouge_n(evaluated_sentences, reference_sentences, n=2):
     """
     Computes ROUGE-N of two text collections of sentences.
     Sourece: http://research.microsoft.com/en-us/um/people/cyl/download/
@@ -174,10 +174,10 @@ def rouge_n(evaluated_sentences, reference_sentences, n=2):
     overlapping_ngrams = evaluated_ngrams.intersection(reference_ngrams)
     overlapping_count = len(overlapping_ngrams)
 
-    return f_r_p_rouge_n(evaluated_count, reference_count, overlapping_count)
+    return _f_r_p_rouge_n(evaluated_count, reference_count, overlapping_count)
 
 
-def f_r_p_rouge_n(evaluated_count, reference_count, overlapping_count):
+def _f_r_p_rouge_n(evaluated_count, reference_count, overlapping_count):
     # Handle edge case. This isn't mathematically correct, but it's good enough
     if evaluated_count == 0:
         precision = 0.0
@@ -234,7 +234,7 @@ def _union_lcs(evaluated_sentences, reference_sentence, prev_union=None):
     return new_lcs_count, lcs_union
 
 
-def rouge_l_summary_level(evaluated_sentences, reference_sentences):
+def _rouge_l_summary_level(evaluated_sentences, reference_sentences):
     """
     Computes ROUGE-L (summary level) of two text collections of sentences.
     http://research.microsoft.com/en-us/um/people/cyl/download/papers/
@@ -285,30 +285,37 @@ def rouge_l_summary_level(evaluated_sentences, reference_sentences):
 
 
 def rouge1_score(
-    y_true,
-    y_pred,
+    y_true: List[Union[str, int, List[Union[str, int]]]],
+    y_pred: List[Union[str, int, List[Union[str, int]]]],
     ignore_tokens: Optional[List[Union[str, int]]] = None,
 ):
+    """
+    Args:
+        y_true: list of lists of int/str tokens of ground truth.
+        y_pred: list of lists of int/str tokens of generation results.
+        ignore_tokens: the token list to filtration
+    """
+
     if isinstance(y_true, torch.Tensor):
         if y_true.dim() == 2:
             y_true = y_true.unsqueeze(1)
-        y_true = convert_tensor_to_3D_strings(y_true)
+        y_true = _convert_tensor_to_3D_strings(y_true)
 
     if isinstance(y_pred, torch.Tensor) and y_pred.dim() == 2:
-        y_pred = convert_tensor_to_2D_strings(y_pred)
+        y_pred = _convert_tensor_to_2D_strings(y_pred)
 
     if ignore_tokens is not None:
         ignore_tokens = [str(t) for t in ignore_tokens]
 
-    y_true = remove_3D_strings_ignore_tokens(y_true, ignore_tokens=ignore_tokens)
-    y_pred = remove_2D_strings_ignore_tokens(y_pred, ignore_tokens=ignore_tokens)
+    y_true = _remove_3D_strings_ignore_tokens(y_true, ignore_tokens=ignore_tokens)
+    y_pred = _remove_2D_strings_ignore_tokens(y_pred, ignore_tokens=ignore_tokens)
 
     y_true = [_y_true[0] for _y_true in y_true]
 
     num = len(y_pred)
     pre, rec, f1 = 0, 0, 0
     for t, p in zip(y_true, y_pred):
-        r = rouge_n(p, t, n=1)
+        r = _rouge_n(p, t, n=1)
         pre += r["p"]
         rec += r["r"]
         f1 += r["f"]
@@ -317,30 +324,37 @@ def rouge1_score(
 
 
 def rouge2_score(
-    y_true,
-    y_pred,
+    y_true: List[Union[str, int, List[Union[str, int]]]],
+    y_pred: List[Union[str, int, List[Union[str, int]]]],
     ignore_tokens: Optional[List[Union[str, int]]] = None,
 ):
+    """
+    Args:
+        y_true: list of lists of int/str tokens of ground truth.
+        y_pred: list of lists of int/str tokens of generation results.
+        ignore_tokens: the token list to filtration
+    """
+
     if isinstance(y_true, torch.Tensor):
         if y_true.dim() == 2:
             y_true = y_true.unsqueeze(1)
-        y_true = convert_tensor_to_3D_strings(y_true)
+        y_true = _convert_tensor_to_3D_strings(y_true)
 
     if isinstance(y_pred, torch.Tensor) and y_pred.dim() == 2:
-        y_pred = convert_tensor_to_2D_strings(y_pred)
+        y_pred = _convert_tensor_to_2D_strings(y_pred)
 
     if ignore_tokens is not None:
         ignore_tokens = [str(t) for t in ignore_tokens]
 
-    y_true = remove_3D_strings_ignore_tokens(y_true, ignore_tokens=ignore_tokens)
-    y_pred = remove_2D_strings_ignore_tokens(y_pred, ignore_tokens=ignore_tokens)
+    y_true = _remove_3D_strings_ignore_tokens(y_true, ignore_tokens=ignore_tokens)
+    y_pred = _remove_2D_strings_ignore_tokens(y_pred, ignore_tokens=ignore_tokens)
 
     y_true = [_y_true[0] for _y_true in y_true]
 
     num = len(y_pred)
     pre, rec, f1 = 0, 0, 0
     for t, p in zip(y_true, y_pred):
-        r = rouge_n(p, t, n=2)
+        r = _rouge_n(p, t, n=2)
         pre += r["p"]
         rec += r["r"]
         f1 += r["f"]
@@ -349,30 +363,37 @@ def rouge2_score(
 
 
 def rougel_score(
-    y_true,
-    y_pred,
+    y_true: List[Union[str, int, List[Union[str, int]]]],
+    y_pred: List[Union[str, int, List[Union[str, int]]]],
     ignore_tokens: Optional[List[Union[str, int]]] = None,
 ):
+    """
+    Args:
+        y_true: list of lists of int/str tokens of ground truth.
+        y_pred: list of lists of int/str tokens of generation results.
+        ignore_tokens: the token list to filtration
+    """
+
     if isinstance(y_true, torch.Tensor):
         if y_true.dim() == 2:
             y_true = y_true.unsqueeze(1)
-        y_true = convert_tensor_to_3D_strings(y_true)
+        y_true = _convert_tensor_to_3D_strings(y_true)
 
     if isinstance(y_pred, torch.Tensor) and y_pred.dim() == 2:
-        y_pred = convert_tensor_to_2D_strings(y_pred)
+        y_pred = _convert_tensor_to_2D_strings(y_pred)
 
     if ignore_tokens is not None:
         ignore_tokens = [str(t) for t in ignore_tokens]
 
-    y_true = remove_3D_strings_ignore_tokens(y_true, ignore_tokens=ignore_tokens)
-    y_pred = remove_2D_strings_ignore_tokens(y_pred, ignore_tokens=ignore_tokens)
+    y_true = _remove_3D_strings_ignore_tokens(y_true, ignore_tokens=ignore_tokens)
+    y_pred = _remove_2D_strings_ignore_tokens(y_pred, ignore_tokens=ignore_tokens)
 
     y_true = [_y_true[0] for _y_true in y_true]
 
     num = len(y_pred)
     pre, rec, f1 = 0, 0, 0
     for t, p in zip(y_true, y_pred):
-        r = rouge_l_summary_level(p, t)
+        r = _rouge_l_summary_level(p, t)
         pre += r["p"]
         rec += r["r"]
         f1 += r["f"]

@@ -26,6 +26,12 @@ class XProphetNetForGeneration(GenericModel, GenerationMixin):
         freeze_word_embedding: Optional[bool] = True,
         gradient_checkpointing: Optional[bool] = False,
     ):
+        """
+        Args:
+            config_path: config file path to xprophetnet model
+            freeze_word_embedding: if to freeze word embedding in xprophetnet model
+            gradient_checkpointing: if to enable gradient_checkpointing
+        """
         super().__init__()
 
         self.config = XLMProphetNetConfig.from_json_file(config_path)
@@ -33,9 +39,7 @@ class XProphetNetForGeneration(GenericModel, GenerationMixin):
         self.prophetnet = XLMProphetNetModel(self.config)
         self.padding_idx = self.config.pad_token_id
 
-        self.lm_head = nn.Linear(
-            self.config.hidden_size, self.config.vocab_size, bias=False
-        )
+        self.lm_head = nn.Linear(self.config.hidden_size, self.config.vocab_size, bias=False)
 
         if freeze_word_embedding:
             self.lm_head.weight.requires_grad = False
@@ -44,22 +48,51 @@ class XProphetNetForGeneration(GenericModel, GenerationMixin):
         self.init_weights()
 
     def get_output_embeddings(self):
+        """
+        Returns the model's output embeddings.
+        Returns:
+            `nn.Module`: A torch module mapping vocabulary to hidden states.
+        """
         return self.lm_head
 
     def set_output_embeddings(self, new_embeddings):
+        """
+        Set model's output embeddings.
+        Args:
+            value (`nn.Module`): A module mapping vocabulary to hidden states.
+        """
         self.lm_head = new_embeddings
 
     def get_input_embeddings(self):
+        """
+        Returns the model's input embeddings.
+        Returns:
+            `nn.Module`: A torch module mapping vocabulary to hidden states.
+        """
         return self.prophetnet.word_embeddings
 
     def get_encoder(self):
+        """
+        Returns the model's encoder.
+        Returns:
+            `nn.Module`: A torch module encoder to process hidden states.
+        """
         return self.prophetnet.encoder
 
     def get_decoder(self):
+        """
+        Returns the model's decoder.
+        Returns:
+            `nn.Module`: A torch module decoder to process hidden states.
+        """
         return self.prophetnet.decoder
 
     @property
     def device(self) -> device:
+        """
+        `torch.device`: The device on which the module is (assuming that all the module parameters are on the same
+        device).
+        """
         return next(self.parameters()).device
 
     def prepare_inputs_for_generation(
@@ -71,15 +104,16 @@ class XProphetNetForGeneration(GenericModel, GenerationMixin):
         encoder_outputs=None,
         **kwargs,
     ):
+        """
+        Implement in subclasses of [`PreTrainedModel`] for custom behavior to prepare inputs in the generate method.
+        """
         decoder_length = decoder_input_ids.size(1)
         if past is not None:
             decoder_input_ids = decoder_input_ids[:, -1:]
 
         if decoder_length == 1:
             encoder_hidden_states = encoder_outputs.last_hidden_state
-            encoder_hidden_states = encoder_hidden_states.view(
-                -1, self.num_beams, *encoder_hidden_states.size()[1:]
-            )
+            encoder_hidden_states = encoder_hidden_states.view(-1, self.num_beams, *encoder_hidden_states.size()[1:])
             encoder_hidden_states = encoder_hidden_states[:, 0]
             encoder_outputs.last_hidden_state = encoder_hidden_states
 
@@ -96,11 +130,7 @@ class XProphetNetForGeneration(GenericModel, GenerationMixin):
         for layer_past in past:
             # cached cross_attention states don't have to be reordered -> they are always the same
             reordered_past += (
-                tuple(
-                    past_state.index_select(0, beam_idx)
-                    for past_state in layer_past[:2]
-                )
-                + layer_past[2:],
+                tuple(past_state.index_select(0, beam_idx) for past_state in layer_past[:2]) + layer_past[2:],
             )
         return reordered_past
 
@@ -111,12 +141,8 @@ class XProphetNetForGeneration(GenericModel, GenerationMixin):
         reordered_past = ()
         for layer_past in past:
             # cached cross_attention states don't have to be reordered -> they are always the same
-            past_state1 = tuple(
-                [past_state.index_select(0, beam_idx) for past_state in layer_past[:2]]
-            )
-            past_state2 = tuple(
-                [past_state.index_select(0, batch_idx) for past_state in layer_past[2:]]
-            )
+            past_state1 = tuple([past_state.index_select(0, beam_idx) for past_state in layer_past[:2]])
+            past_state2 = tuple([past_state.index_select(0, batch_idx) for past_state in layer_past[2:]])
             reordered_past += (past_state1 + past_state2,)
 
         return reordered_past
@@ -136,6 +162,15 @@ class XProphetNetForGeneration(GenericModel, GenerationMixin):
         decoder_length=None,
         return_dict=None,
     ):
+        """
+        Args:
+            tokens_ids_a: tokens of encode text
+            tokens_mask_a: token masks of encode text
+            tokens_ids_b: tokens of decode text
+            tokens_mask_b: token masks of decode text
+            others: used in beam search
+        Returns: forward logits
+        """
         if self.training:
             outputs = self.prophetnet(
                 input_ids=tokens_ids_a,
@@ -144,9 +179,7 @@ class XProphetNetForGeneration(GenericModel, GenerationMixin):
                 decoder_attention_mask=tokens_mask_b,
             )
             batch_size, sequence_length = tokens_ids_b.shape[:2]
-            predicting_streams = outputs[1].view(
-                batch_size, self.config.ngram, sequence_length, -1
-            )
+            predicting_streams = outputs[1].view(batch_size, self.config.ngram, sequence_length, -1)
             predict_logits = self.lm_head(predicting_streams)
             return predict_logits
 
@@ -158,9 +191,7 @@ class XProphetNetForGeneration(GenericModel, GenerationMixin):
             past_key_values=past_key_values,
             use_cache=True,
         )
-        predicting_streams = outputs[1].view(
-            batch_size, self.config.ngram, sequence_length, -1
-        )
+        predicting_streams = outputs[1].view(batch_size, self.config.ngram, sequence_length, -1)
         predict_logits = self.lm_head(predicting_streams)
         logits = predict_logits[:, 0]
         logits_ngram = predict_logits[:, 1:] if self.config.ngram > 1 else None
@@ -187,6 +218,10 @@ class XProphetNetForGeneration(GenericModel, GenerationMixin):
         top_k=50,
         top_p=1.0,
     ):
+        """
+        Args:
+            tokens_ids: tokens of encode text
+        """
         self.num_beams = num_beams
         outputs = super().generate(
             tokens_ids,
@@ -211,17 +246,13 @@ class XProphetNetForGeneration(GenericModel, GenerationMixin):
             output_scores=True,
         )
 
-        sequences = outputs.sequences.reshape(
-            -1, num_return_sequences, outputs.sequences.size(-1)
+        sequences = outputs.sequences.reshape(-1, num_return_sequences, outputs.sequences.size(-1))
+        outputs.sequences = torch.zeros(sequences.size(0), num_return_sequences, max_gen_seq_length).to(
+            device=sequences.device
         )
-        outputs.sequences = torch.zeros(
-            sequences.size(0), num_return_sequences, max_gen_seq_length
-        ).to(device=sequences.device)
         outputs.sequences[:, :, : sequences.size(-1)].copy_(sequences)
 
         if num_return_sequences == 1:
             outputs.sequences = outputs.sequences.reshape(-1, max_gen_seq_length)
 
-        return GenericOutputs(
-            sequences=outputs.sequences, sequences_scores=outputs.sequences_scores
-        )
+        return GenericOutputs(sequences=outputs.sequences, sequences_scores=outputs.sequences_scores)

@@ -4,8 +4,8 @@
 import torch
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from torch.cuda.amp import autocast
-from unitorch import hf_cached_path
 from unitorch.models.mass import MASSForGeneration as _MASSForGeneration
+from unitorch.cli import cached_path
 from unitorch.cli import (
     add_default_section_for_init,
     add_default_section_for_function,
@@ -35,7 +35,7 @@ class MASSForGeneration(_MASSForGeneration):
             else config_name_or_path
         )
 
-        config_path = hf_cached_path(config_path)
+        config_path = cached_path(config_path)
 
         vocab_name_or_path = config.getoption("vocab_path", pretrained_name)
         vocab_path = (
@@ -43,13 +43,11 @@ class MASSForGeneration(_MASSForGeneration):
             if vocab_name_or_path in pretrained_mass_infos
             else vocab_name_or_path
         )
-        vocab_path = hf_cached_path(vocab_path)
+        vocab_path = cached_path(vocab_path)
 
         inst = cls(config_path, vocab_path)
         if pretrained_name is not None:
-            pretrained_name_or_path = config.getoption(
-                "pretrained_weight_path", pretrained_name
-            )
+            pretrained_name_or_path = config.getoption("pretrained_weight_path", pretrained_name)
             weight_path = (
                 pretrained_mass_infos[pretrained_name_or_path]["weight"]
                 if pretrained_name_or_path in pretrained_mass_infos
