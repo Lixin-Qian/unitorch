@@ -1,0 +1,9 @@
+*.pyc
+.DS_Store
+.vscode/*
+docs/.DS_Store
+build/*
+unitorch.egg-info/*
+dist/*
+cache/
+cache*/
